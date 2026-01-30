@@ -80,6 +80,7 @@ print(f"Loaded model from {CHECKPOINT_PATH}")
 
 # 推理函数
 def predict(loader, model, output_dir):
+    print(OUTPUT_DIR)
     model.eval()  # 设置为评估模式
     with torch.no_grad():
         for batch_idx, (images, filenames) in enumerate(loader):  # 假设自定义数据集返回图像和文件名
