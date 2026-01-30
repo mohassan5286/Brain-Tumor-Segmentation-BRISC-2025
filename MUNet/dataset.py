@@ -4,6 +4,7 @@ import nibabel as nib  # 用于加载 NIfTI 格式文件
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+from logging_config import logging
 
 class BRISC2025Dataset(Dataset):
     def __init__(self, df, transform=None):
@@ -136,6 +137,7 @@ if __name__ == "__main__":
 
     # 测试数据加载
     for images, segs in data_loader:
+        # if logging:
         print(f"Images shape: {images.shape}")  # (batch_size, 4, H, W, D)
         print(f"Segs shape: {segs.shape}")      # (batch_size, H, W, D)
         break

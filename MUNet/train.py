@@ -13,6 +13,9 @@ from sklearn.model_selection import train_test_split
 
 # 设置设备
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from logging_config import logging
+
+# if logging:
 print(f"Using device: {device}")
 
 # 参数设置
@@ -38,6 +41,7 @@ transform = transforms.Compose([
 image_dir = '/kaggle/input/brisc2025/brisc2025/segmentation_task/train/images'
 mask_dir = '/kaggle/input/brisc2025/brisc2025/segmentation_task/train/masks'
 
+# if logging:
 print("Sample image files:", os.listdir(image_dir)[:5])
 print("Sample mask files:", os.listdir(mask_dir)[:5])
 
@@ -98,6 +102,7 @@ def train_fn(loader, model, optimizer):
 
         epoch_loss += loss.item()
         if batch_idx % 10 == 0:  # 每 10 个 batch 打印一次日志
+            # if logging:
             print(f"Batch {batch_idx}/{len(loader)}, Loss: {loss.item():.4f}")
             break
     return epoch_loss / len(loader)
@@ -126,20 +131,24 @@ def save_checkpoint(model, optimizer, epoch, checkpoint_dir):
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
     }, checkpoint_path)
+    # if logging:
     print(f"Checkpoint saved at {checkpoint_path}")
 
 # 训练过程
 def train():
     best_val_loss = float("inf")
     for epoch in range(EPOCHS):
+        # if logging:
         print(f"Epoch [{epoch+1}/{EPOCHS}]")
 
         # 训练
         train_loss = train_fn(train_loader, model, optimizer)
+        # if logging:
         print(f"Train Loss: {train_loss:.4f}")
 
         # 验证
         val_loss = eval_fn(val_loader, model)
+        # if logging:
         print(f"Validation Loss: {val_loss:.4f}")
 
         # 学习率调度

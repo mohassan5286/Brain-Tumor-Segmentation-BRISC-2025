@@ -9,6 +9,9 @@ from PIL import Image
 
 # 设置设备
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from logging_config import logging
+
+# if logging:
 print(f"Using device: {device}")
 
 # 参数设置
@@ -40,6 +43,7 @@ model = MUNet(in_channels=IN_CHANNELS, out_channels=OUT_CHANNELS, embed_dim=EMBE
 checkpoint = torch.load(CHECKPOINT_PATH, map_location=device)  # 加载检查点
 model.load_state_dict(checkpoint['model_state_dict'])
 model.eval()  # 设置为评估模式
+# if logging:
 print(f"Loaded model from {CHECKPOINT_PATH}")
 
 # 推理函数
@@ -71,12 +75,15 @@ def save_mask(mask, save_path):
     mask = (mask * 255).astype(np.uint8)  # 将 mask 转换为 0-255 范围
     mask_image = Image.fromarray(mask)  # 转换为 PIL 图像
     mask_image.save(save_path)  # 保存图像
+    # if logging:
     print(f"Saved: {save_path}")
 
 # 测试函数
 def test():
+    # if logging:
     print("Starting testing...")
     predict(test_loader, model, OUTPUT_DIR)
+    # if logging:
     print("Testing completed. Results saved in:", OUTPUT_DIR)
 
 if __name__ == "__main__":
