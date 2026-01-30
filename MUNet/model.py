@@ -100,9 +100,9 @@ class MUNet(nn.Module):
             print(f"[MUNet] Encoder Block {i} output: {x.shape}")
             
             if i < len(self.patch_merging_layers):
+                skip_connections.append(x)
                 x = self.patch_merging_layers[i](x)
                 print(f"[MUNet] After Patch Merging {i}: {x.shape}")
-                skip_connections.append(x)
 
         # Bottleneck
         x = self.bottleneck(x)
