@@ -77,6 +77,7 @@ class SDSSMBlock(nn.Module):
         self.sdconv3 = SDConv(out_channels, out_channels, dilation=3)
 
         # X2 Branch: Global feature extraction with LayerNorm, Linear, SD-Conv, and SS2D
+        self.gap_layer = nn.AvgPool2d(kernel_size=out_channels) 
         self.layer_norm = nn.LayerNorm([in_channels, 1, 1])  # Normalize along the channel axis
         self.linear1 = nn.Linear(in_channels, in_channels)
         self.silu = nn.SiLU()
@@ -106,6 +107,7 @@ class SDSSMBlock(nn.Module):
 
         # X2 Branch
         print(f"[SDSSMBlock] Processing X2 Branch...")
+        x2 = self.gap_layer(x2)
         x2 = self.layer_norm(x2)
         x2 = self.linear1(x2.permute(0, 2, 3, 1))  # (B, H, W, C)
         x2 = self.silu(x2).permute(0, 3, 1, 2)    # (B, C, H, W)
