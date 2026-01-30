@@ -6,6 +6,7 @@ from dataset import BraTSDataset  # 自定义数据集类
 import os
 import numpy as np
 from PIL import Image
+import pandas as pd
 
 # 设置设备
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
