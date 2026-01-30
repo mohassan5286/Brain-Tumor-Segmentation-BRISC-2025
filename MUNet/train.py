@@ -21,7 +21,7 @@ print(f"Using device: {device}")
 # 参数设置
 EPOCHS = 50
 # EPOCHS = 1
-BATCH_SIZE = 16
+BATCH_SIZE = 2
 LEARNING_RATE = 1e-4
 NUM_WORKERS = 4
 IN_CHANNELS = 3
