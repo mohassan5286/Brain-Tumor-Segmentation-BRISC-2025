@@ -85,7 +85,6 @@ def predict(loader, model, output_dir):
     with torch.no_grad():
         for batch_idx, (images, filenames) in enumerate(loader):  # 假设自定义数据集返回图像和文件名
             images = images.to(device)
-            print(filenames[i])
 
             # 前向传播
             preds = model(images)
@@ -95,6 +94,7 @@ def predict(loader, model, output_dir):
             # 保存结果
             for i in range(preds.size(0)):
                 pred_mask = preds[i].cpu().numpy().squeeze()  # 转换为 NumPy 格式
+                print(filenames[i])
                 save_path = os.path.join(output_dir, str(filenames[i]))
                 save_mask(pred_mask, save_path)
 
