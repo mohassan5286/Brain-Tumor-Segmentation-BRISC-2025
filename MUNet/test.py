@@ -7,6 +7,7 @@ import os
 import numpy as np
 from PIL import Image
 import pandas as pd
+from train import eval_fn
 
 # 设置设备
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -95,6 +96,7 @@ def predict(loader, model, output_dir):
             for i in range(preds.size(0)):
                 pred_mask = preds[i].cpu().numpy().squeeze()  # 转换为 NumPy 格式
                 print(filenames[i])
+                print(images[i])
                 save_path = os.path.join(output_dir, str(filenames[i]))
                 save_mask(pred_mask, save_path)
 
@@ -116,9 +118,10 @@ def save_mask(mask, save_path):
 def test():
     # if logging:
     print("Starting testing...")
-    predict(test_loader, model, OUTPUT_DIR)
+    # predict(test_loader, model, OUTPUT_DIR)
     # if logging:
     print("Testing completed. Results saved in:", OUTPUT_DIR)
+    eval_fn(test_loader, model)
 
 if __name__ == "__main__":
     test()

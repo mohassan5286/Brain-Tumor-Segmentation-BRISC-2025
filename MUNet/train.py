@@ -120,7 +120,7 @@ def eval_fn(loader, model):
             loss = compute_loss(preds, masks)
 
             epoch_loss += loss.item()
-            break
+
     return epoch_loss / len(loader)
 
 # 保存模型
