@@ -70,7 +70,9 @@ class MUNet(nn.Module):
 
         # Bottleneck: SD-SSM Block
         self.bottleneck = SDSSMBlock(embed_dim, embed_dim)
-
+        
+        embed_dim *= 2
+        
         # Decoder: Patch Expanding + SD-SSM Blocks
         self.decoder_blocks = nn.ModuleList()
         self.patch_expanding_layers = nn.ModuleList()
