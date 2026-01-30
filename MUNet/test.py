@@ -121,7 +121,7 @@ def test():
     # predict(test_loader, model, OUTPUT_DIR)
     # if logging:
     print("Testing completed. Results saved in:", OUTPUT_DIR)
-    eval_fn(test_loader, model)
+    print("Test Loss: ",eval_fn(test_loader, model))
 
 if __name__ == "__main__":
     test()
