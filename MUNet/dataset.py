@@ -4,7 +4,7 @@ import nibabel as nib  # 用于加载 NIfTI 格式文件
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-from logging_config import logging
+from config import logging
 
 class BRISC2025Dataset(Dataset):
     def __init__(self, df, transform=None):

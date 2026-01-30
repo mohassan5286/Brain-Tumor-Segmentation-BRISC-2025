@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from sd_ssm_block import SDSSMBlock  # 引入 SDSSMBlock 模块
-from logging_config import logging
+from config import logging
 
 class LinearEmbedding(nn.Module):
     def __init__(self, in_channels, embed_dim):

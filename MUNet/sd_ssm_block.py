@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from logging_config import logging
+from config import logging
 
 class SCConv(nn.Module):
     """

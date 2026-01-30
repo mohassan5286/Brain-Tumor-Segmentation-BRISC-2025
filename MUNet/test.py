@@ -9,7 +9,7 @@ from PIL import Image
 
 # 设置设备
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-from logging_config import logging
+from config import logging
 
 # if logging:
 print(f"Using device: {device}")
