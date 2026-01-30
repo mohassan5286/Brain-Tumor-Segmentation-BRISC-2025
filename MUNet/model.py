@@ -2,32 +2,30 @@ import torch
 import torch.nn as nn
 from sd_ssm_block import SDSSMBlock  # 引入 SDSSMBlock 模块
 
-
 class LinearEmbedding(nn.Module):
-    """
-    Linear Embedding: Projects input image to initial feature space.
-    """
     def __init__(self, in_channels, embed_dim):
         super(LinearEmbedding, self).__init__()
-        self.linear_proj = nn.Conv2d(in_channels, embed_dim, kernel_size=1)  # Linear projection
+        self.linear_proj = nn.Conv2d(in_channels, embed_dim, kernel_size=1)
 
     def forward(self, x):
-        return self.linear_proj(x)
-
+        out = self.linear_proj(x)
+        print(f"[LinearEmbedding] Input: {x.shape} -> Output: {out.shape}")
+        return out
 
 class PatchMerging(nn.Module):
-    """
-    Patch Merging: Reduces spatial resolution and doubles the feature channels.
-    """
     def __init__(self, in_channels, out_channels):
         super(PatchMerging, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=2, padding=1)
         self.norm = nn.BatchNorm2d(out_channels)
 
     def forward(self, x):
+        print(f"[PatchMerging] Input: {x.shape}")
+        
         x = self.conv(x)
-        return self.norm(x)
-
+        print(f"[PatchMerging] After Conv (stride 2): {x.shape}")
+        
+        x = self.norm(x)
+        return x
 
 class PatchExpanding(nn.Module):
     """
@@ -35,11 +33,14 @@ class PatchExpanding(nn.Module):
     """
     def __init__(self, in_channels, out_channels):
         super(PatchExpanding, self).__init__()
+        # Using a stride of 2 to upscale the image
         self.deconv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
 
     def forward(self, x):
-        return self.deconv(x)
-
+        print(f"[PatchExpanding] Input shape: {x.shape}")
+        x = self.deconv(x)
+        print(f"[PatchExpanding] Output shape: {x.shape}")
+        return x
 
 class MUNet(nn.Module):
     """
@@ -83,26 +84,52 @@ class MUNet(nn.Module):
         self.final_conv = nn.Conv2d(embed_dim, out_channels, kernel_size=1)
 
     def forward(self, x):
+        print(f"\n>>> [MUNet] Starting Forward Pass")
+        print(f"[MUNet] Input shape: {x.shape}")
+        
         # Linear Embedding
         x = self.linear_embedding(x)
+        print(f"[MUNet] After Linear Embedding: {x.shape}")
 
         # Encoder
         skip_connections = []
         for i, block in enumerate(self.encoder_blocks):
             x = block(x)
             skip_connections.append(x)
+            print(f"[MUNet] Encoder Block {i} output: {x.shape}")
+            
             if i < len(self.patch_merging_layers):
                 x = self.patch_merging_layers[i](x)
+                print(f"[MUNet] After Patch Merging {i}: {x.shape}")
 
         # Bottleneck
         x = self.bottleneck(x)
+        print(f"[MUNet] Bottleneck output: {x.shape}")
 
         # Decoder
         skip_connections = skip_connections[::-1]  # Reverse skip connections
         for i, block in enumerate(self.decoder_blocks):
             if i > 0:
                 x = self.patch_expanding_layers[i - 1](x)
+                print(f"[MUNet] Decoder Layer {i} - After Expanding: {x.shape}")
+            
             skip_connection = skip_connections[i]
+            
+            # Check for shape mismatch before concatenation
             if x.shape != skip_connection.shape:
-                x = nn.functional.interpolate(x, size=skip_connection.shape[2:])  # Align shapes if needed
-            x = torch.cat((x, skip_connection), dim=1)  # Concatenate a
+                print(f"  [MUNet WARNING] Shape mismatch! x: {x.shape}, skip: {skip_connection.shape}. Interpolating...")
+                x = nn.functional.interpolate(x, size=skip_connection.shape[2:])
+            
+            # Concatenation
+            x = torch.cat((x, skip_connection), dim=1)
+            print(f"[MUNet] Decoder Layer {i} - After Concatenation: {x.shape}")
+            
+            # Pass through the actual decoder block
+            x = block(x) 
+            print(f"[MUNet] Decoder Layer {i} - After Block: {x.shape}")
+
+        # Final Conv Layer
+        x = self.final_conv(x)
+        print(f"[MUNet] Final Output shape: {x.shape}")
+        print(f">>> [MUNet] Forward Pass Complete\n")
+        return x
