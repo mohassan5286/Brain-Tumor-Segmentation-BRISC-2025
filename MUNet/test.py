@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from model import MUNet  # 导入训练好的 MUNet 模型
-from dataset import BraTSDataset  # 自定义数据集类
+from dataset import BRISC2025Dataset  # 自定义数据集类
 import os
 import numpy as np
 from PIL import Image
@@ -24,7 +24,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 BATCH_SIZE = 2
 NUM_WORKERS = 4
 IMAGE_SIZE = 256
-IN_CHANNELS = 1
+IN_CHANNELS = 3
 OUT_CHANNELS = 1
 EMBED_DIM = 64
 NUM_LAYERS = 4
