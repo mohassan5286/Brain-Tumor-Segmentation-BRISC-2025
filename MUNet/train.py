@@ -98,6 +98,7 @@ def train_fn(loader, model, optimizer):
         epoch_loss += loss.item()
         if batch_idx % 10 == 0:  # 每 10 个 batch 打印一次日志
             print(f"Batch {batch_idx}/{len(loader)}, Loss: {loss.item():.4f}")
+            break
     return epoch_loss / len(loader)
 
 # 验证函数
@@ -113,6 +114,7 @@ def eval_fn(loader, model):
             loss = compute_loss(preds, masks)
 
             epoch_loss += loss.item()
+            break
     return epoch_loss / len(loader)
 
 # 保存模型
