@@ -85,6 +85,7 @@ def predict(loader, model, output_dir):
     with torch.no_grad():
         for batch_idx, (images, filenames) in enumerate(loader):  # 假设自定义数据集返回图像和文件名
             images = images.to(device)
+            print(filenames[i])
 
             # 前向传播
             preds = model(images)
