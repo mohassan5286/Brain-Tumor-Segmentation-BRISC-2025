@@ -71,7 +71,7 @@ class MUNet(nn.Module):
         # Bottleneck: SD-SSM Block
         self.bottleneck = SDSSMBlock(embed_dim, embed_dim)
         
-        embed_dim *= 2
+        # embed_dim *= 2
         
         # Decoder: Patch Expanding + SD-SSM Blocks
         self.decoder_blocks = nn.ModuleList()
@@ -97,12 +97,12 @@ class MUNet(nn.Module):
         skip_connections = []
         for i, block in enumerate(self.encoder_blocks):
             x = block(x)
-            skip_connections.append(x)
             print(f"[MUNet] Encoder Block {i} output: {x.shape}")
             
             if i < len(self.patch_merging_layers):
                 x = self.patch_merging_layers[i](x)
                 print(f"[MUNet] After Patch Merging {i}: {x.shape}")
+                skip_connections.append(x)
 
         # Bottleneck
         x = self.bottleneck(x)
@@ -115,16 +115,16 @@ class MUNet(nn.Module):
                 x = self.patch_expanding_layers[i - 1](x)
                 print(f"[MUNet] Decoder Layer {i} - After Expanding: {x.shape}")
             
-            skip_connection = skip_connections[i]
-            
-            # Check for shape mismatch before concatenation
-            if x.shape != skip_connection.shape:
-                print(f"  [MUNet WARNING] Shape mismatch! x: {x.shape}, skip: {skip_connection.shape}. Interpolating...")
-                x = nn.functional.interpolate(x, size=skip_connection.shape[2:])
-            
-            # Concatenation
-            x = torch.cat((x, skip_connection), dim=1)
-            print(f"[MUNet] Decoder Layer {i} - After Concatenation: {x.shape}")
+                skip_connection = skip_connections[i]
+                
+                # Check for shape mismatch before concatenation
+                if x.shape != skip_connection.shape:
+                    print(f"  [MUNet WARNING] Shape mismatch! x: {x.shape}, skip: {skip_connection.shape}. Interpolating...")
+                    x = nn.functional.interpolate(x, size=skip_connection.shape[2:])
+                
+                # Concatenation
+                x = torch.cat((x, skip_connection), dim=1)
+                print(f"[MUNet] Decoder Layer {i} - After Concatenation: {x.shape}")
             
             # Pass through the actual decoder block
             x = block(x) 
