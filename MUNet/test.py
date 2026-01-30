@@ -26,7 +26,7 @@ NUM_WORKERS = 4
 IMAGE_SIZE = 256
 IN_CHANNELS = 3
 OUT_CHANNELS = 1
-EMBED_DIM = 64
+EMBED_DIM = 32
 NUM_LAYERS = 4
 
 # 数据增强（与训练时一致）
@@ -73,6 +73,7 @@ test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num
 model = MUNet(in_channels=IN_CHANNELS, out_channels=OUT_CHANNELS, embed_dim=EMBED_DIM, num_layers=NUM_LAYERS).to(device)
 checkpoint = torch.load(CHECKPOINT_PATH, map_location=device)  # 加载检查点
 model.load_state_dict(checkpoint["model_state_dict"])
+model.to(device)
 model.eval()  # 设置为评估模式
 # if logging:
 print(f"Loaded model from {CHECKPOINT_PATH}")
