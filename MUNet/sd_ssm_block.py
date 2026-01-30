@@ -71,7 +71,7 @@ class SDSSMBlock(nn.Module):
         super(SDSSMBlock, self).__init__()
         
         # X1 Branch: Local feature extraction with multi-scale SD-Conv
-        self.bn1 = nn.BatchNorm2d(in_channels)
+        self.bn1 = nn.BatchNorm2d(in_channels // 2)
         self.sdconv1 = SDConv(in_channels, out_channels, dilation=1)
         self.sdconv2 = SDConv(out_channels, out_channels, dilation=2)
         self.sdconv3 = SDConv(out_channels, out_channels, dilation=3)
