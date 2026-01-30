@@ -77,10 +77,10 @@ class SDSSMBlock(nn.Module):
         self.sdconv3 = SDConv(out_channels, out_channels, dilation=3)
 
         # X2 Branch: Global feature extraction with LayerNorm, Linear, SD-Conv, and SS2D
-        self.layer_norm = nn.LayerNorm(in_channels)  # Normalize along the channel axis
-        self.linear1 = nn.Linear(in_channels, in_channels)
+        self.layer_norm = nn.LayerNorm(in_channels // 2)  # Normalize along the channel axis
+        self.linear1 = nn.Linear(in_channels // 2, in_channels // 2)
         self.silu = nn.SiLU()
-        self.sdconv4 = SDConv(in_channels, out_channels, dilation=2)
+        self.sdconv4 = SDConv(in_channels // 2, out_channels, dilation=2)
         self.ss2d = nn.Conv2d(out_channels, out_channels, kernel_size=1)
 
         # Fusion: Combine features from both branches
@@ -106,7 +106,7 @@ class SDSSMBlock(nn.Module):
 
         # X2 Branch
         print(f"[SDSSMBlock] Processing X2 Branch...")
-        x2 = self.layer_norm(x2)
+        x2 = self.layer_norm(x2.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)         # layer norm is done on the last dim (this is layer norm pixel wise not layer wise)
         x2 = self.linear1(x2.permute(0, 2, 3, 1))  # (B, H, W, C)
         x2 = self.silu(x2).permute(0, 3, 1, 2)    # (B, C, H, W)
         x2 = self.sdconv4(x2)
