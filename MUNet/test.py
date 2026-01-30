@@ -15,12 +15,12 @@ from config import logging
 print(f"Using device: {device}")
 
 # 参数设置
-TEST_DATASET_PATH = "path/to/test/dataset"
-CHECKPOINT_PATH = "./checkpoints/checkpoint_epoch_best.pth"  # 使用保存的最佳权重
+TEST_DATASET_PATH = ""
+CHECKPOINT_PATH = "/kaggle/working/checkpoints/checkpoint_epoch_7.pth"  # 使用保存的最佳权重
 OUTPUT_DIR = "./outputs"  # 保存测试结果
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-BATCH_SIZE = 16
+BATCH_SIZE = 2
 NUM_WORKERS = 4
 IMAGE_SIZE = 256
 IN_CHANNELS = 1
@@ -34,8 +34,38 @@ transform = transforms.Compose([
     transforms.ToTensor(),
 ])
 
-# 加载测试数据集
-test_dataset = BraTSDataset(TEST_DATASET_PATH, transform=transform)
+
+# 数据增强
+transform = transforms.Compose([
+    transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+    transforms.ToTensor(),
+])
+
+image_dir = '/kaggle/input/brisc2025/brisc2025/segmentation_task/test/images'
+mask_dir = '/kaggle/input/brisc2025/brisc2025/segmentation_task/test/masks'
+
+# if logging:
+print("Sample image files:", os.listdir(image_dir)[:5])
+print("Sample mask files:", os.listdir(mask_dir)[:5])
+
+image_files = [f for f in os.listdir(image_dir) if f.endswith('.jpg')]
+mask_files = [f for f in os.listdir(mask_dir) if f.endswith('.png')]
+
+image_basenames = {os.path.splitext(f)[0]: f for f in image_files}
+mask_basenames = {os.path.splitext(f)[0]: f for f in mask_files}
+
+common_keys = set(image_basenames.keys()) & set(mask_basenames.keys()) # make them set of tuples
+
+data = []
+for key in sorted(common_keys):
+    image_path = os.path.join(image_dir, image_basenames[key])
+    mask_path = os.path.join(mask_dir, mask_basenames[key])
+    data.append({'image_path': image_path, 'mask_path': mask_path})
+
+df = pd.DataFrame(data)
+
+test_dataset = BRISC2025Dataset(df)
+
 test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
 
 # 加载模型
