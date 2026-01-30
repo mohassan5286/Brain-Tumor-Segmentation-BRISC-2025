@@ -70,18 +70,19 @@ class MUNet(nn.Module):
 
         # Bottleneck: SD-SSM Block
         self.bottleneck = SDSSMBlock(embed_dim, embed_dim)
-        
-        # embed_dim *= 2
-        
-        # Decoder: Patch Expanding + SD-SSM Blocks
+        curr_dim = embed_dim 
         self.decoder_blocks = nn.ModuleList()
         self.patch_expanding_layers = nn.ModuleList()
-        for _ in range(num_layers - 1, -1, -1):
-            if _ != num_layers - 1:  # No patch expanding before the first decoder layer
-                embed_dim //= 2
-                self.patch_expanding_layers.append(PatchExpanding(embed_dim * 2, embed_dim))
-            self.decoder_blocks.append(SDSSMBlock(embed_dim, embed_dim))
-
+        for i in range(num_layers):
+            if i == 0:
+                self.decoder_blocks.append(SDSSMBlock(curr_dim, curr_dim))
+            else:
+                prev_dim = curr_dim
+                curr_dim //= 2
+                self.patch_expanding_layers.append(PatchExpanding(prev_dim, curr_dim))
+                combined_channels = curr_dim + curr_dim 
+                self.decoder_blocks.append(SDSSMBlock(combined_channels, curr_dim))
+        
         # Final Conv Layer
         self.final_conv = nn.Conv2d(embed_dim, out_channels, kernel_size=1)
 

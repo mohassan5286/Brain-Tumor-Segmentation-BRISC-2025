@@ -88,6 +88,8 @@ class SDSSMBlock(nn.Module):
         self.final_layer_norm = nn.LayerNorm(out_channels)
         self.output_conv = nn.Conv2d(out_channels, out_channels, kernel_size=1)
 
+        self.residual_proj = nn.Conv2d(in_channels, out_channels, kernel_size=1) if in_channels != out_channels else nn.Identity()
+
     def forward(self, x):
         print(f"\n[SDSSMBlock] === Start Block (Input: {x.shape}) ===")
         
@@ -127,7 +129,7 @@ class SDSSMBlock(nn.Module):
         if output.shape != x.shape:
              print(f" [WARNING] Shape mismatch for residual! output: {output.shape}, original x: {x.shape}")
         
-        output += x 
+        output += self.residual_proj(x)
         print(f"[SDSSMBlock] === End Block (Output: {output.shape}) ===\n")
         return output
 
