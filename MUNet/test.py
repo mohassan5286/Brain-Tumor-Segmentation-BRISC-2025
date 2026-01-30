@@ -72,7 +72,7 @@ test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num
 # 加载模型
 model = MUNet(in_channels=IN_CHANNELS, out_channels=OUT_CHANNELS, embed_dim=EMBED_DIM, num_layers=NUM_LAYERS).to(device)
 checkpoint = torch.load(CHECKPOINT_PATH, map_location=device)  # 加载检查点
-model.load_state_dict(checkpoint['model_state_dict'])
+model.load_state_dict(checkpoint)
 model.eval()  # 设置为评估模式
 # if logging:
 print(f"Loaded model from {CHECKPOINT_PATH}")
