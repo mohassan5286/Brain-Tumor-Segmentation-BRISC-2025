@@ -20,8 +20,10 @@ class SCConv(nn.Module):
         )
 
     def forward(self, x):
-        x = self.spatial_reconstruction(x)  # Reduce spatial redundancy
-        x = self.channel_reconstruction(x)  # Reduce channel redundancy
+        print(f"  [SCConv] Input: {x.shape}")
+        x = self.spatial_reconstruction(x)
+        x = self.channel_reconstruction(x)
+        print(f"  [SCConv] Output: {x.shape}")
         return x
 
 
@@ -36,8 +38,10 @@ class DWConv(nn.Module):
         self.pointwise = nn.Conv2d(in_channels, out_channels, kernel_size=1)
 
     def forward(self, x):
+        print(f"  [DWConv] Input: {x.shape}")
         x = self.depthwise(x)
         x = self.pointwise(x)
+        print(f"  [DWConv] Output: {x.shape}")
         return x
 
 
@@ -52,6 +56,7 @@ class SDConv(nn.Module):
         self.dilated_conv = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=dilation, dilation=dilation)
 
     def forward(self, x):
+        print(f" [SDConv] Dilation {self.dilated_conv.dilation[0]} - Input: {x.shape}")
         x = self.scconv(x)
         x = self.dwconv(x)
         x = self.dilated_conv(x)
@@ -84,28 +89,46 @@ class SDSSMBlock(nn.Module):
         self.output_conv = nn.Conv2d(out_channels, out_channels, kernel_size=1)
 
     def forward(self, x):
+        print(f"\n[SDSSMBlock] === Start Block (Input: {x.shape}) ===")
+        
         # Split input into two branches
-        x1, x2 = torch.chunk(x, 2, dim=1)  # Split along the channel dimension
+        # CRITICAL: x1 and x2 will have in_channels // 2
+        x1, x2 = torch.chunk(x, 2, dim=1) 
+        print(f"[SDSSMBlock] After Chunk - x1: {x1.shape}, x2: {x2.shape}")
 
         # X1 Branch
+        print(f"[SDSSMBlock] Processing X1 Branch...")
         x1 = self.bn1(x1)
         x1 = self.sdconv1(x1)
         x1 = self.sdconv2(x1)
         x1 = self.sdconv3(x1)
+        print(f"[SDSSMBlock] X1 Branch Final: {x1.shape}")
 
         # X2 Branch
+        print(f"[SDSSMBlock] Processing X2 Branch...")
         x2 = self.layer_norm(x2)
-        x2 = self.linear1(x2.permute(0, 2, 3, 1))  # Adjust shape for Linear layer
-        x2 = self.silu(x2).permute(0, 3, 1, 2)  # Restore shape
+        x2 = self.linear1(x2.permute(0, 2, 3, 1))  # (B, H, W, C)
+        x2 = self.silu(x2).permute(0, 3, 1, 2)    # (B, C, H, W)
         x2 = self.sdconv4(x2)
         x2 = self.ss2d(x2)
+        print(f"[SDSSMBlock] X2 Branch Final: {x2.shape}")
 
         # Fusion
-        fused = x1 + x2  # Add features from both branches
-        fused = self.fusion_linear(fused.permute(0, 2, 3, 1))  # Adjust shape for Linear layer
-        fused = self.final_layer_norm(fused).permute(0, 3, 1, 2)  # Restore shape
+        fused = x1 + x2 
+        print(f"[SDSSMBlock] Fused (x1+x2): {fused.shape}")
+        
+        fused = self.fusion_linear(fused.permute(0, 2, 3, 1))
+        fused = self.final_layer_norm(fused).permute(0, 3, 1, 2)
         output = self.output_conv(fused)
+        print(f"[SDSSMBlock] Before Residual Addition: {output.shape}")
 
         # Residual connection
-        output += x  # Add input as residual
+        # Check if output channels match original x channels
+        if output.shape != x.shape:
+             print(f" [WARNING] Shape mismatch for residual! output: {output.shape}, original x: {x.shape}")
+        
+        output += x 
+        print(f"[SDSSMBlock] === End Block (Output: {output.shape}) ===\n")
         return output
+
+
