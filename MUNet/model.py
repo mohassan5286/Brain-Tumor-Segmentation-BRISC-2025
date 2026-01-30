@@ -84,7 +84,7 @@ class MUNet(nn.Module):
                 self.decoder_blocks.append(SDSSMBlock(combined_channels, curr_dim))
         
         # Final Conv Layer
-        self.final_conv = nn.Conv2d(embed_dim, out_channels, kernel_size=1)
+        self.final_conv = nn.Conv2d(curr_dim, out_channels, kernel_size=1)
 
     def forward(self, x):
         print(f"\n>>> [MUNet] Starting Forward Pass")
