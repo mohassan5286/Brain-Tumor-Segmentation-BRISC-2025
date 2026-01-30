@@ -1,12 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 from model import MUNet  # 导入 MUNet 模型
 from loss import total_loss  # 导入自定义损失函数
-from dataset import CustomDataset  # 假设有一个自定义数据集模块
+from dataset import BRISC2025Dataset  # 假设有一个自定义数据集模块
 import os
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
 
 # 设置设备
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -22,8 +25,6 @@ OUT_CHANNELS = 1
 IMAGE_SIZE = 256
 EMBED_DIM = 64
 NUM_LAYERS = 4
-TRAIN_DATASET_PATH = "path/to/train/dataset"
-VAL_DATASET_PATH = "path/to/val/dataset"
 CHECKPOINT_DIR = "./checkpoints"
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
@@ -33,9 +34,37 @@ transform = transforms.Compose([
     transforms.ToTensor(),
 ])
 
-# 加载数据集
-train_dataset = CustomDataset(TRAIN_DATASET_PATH, transform=transform)
-val_dataset = CustomDataset(VAL_DATASET_PATH, transform=transform)
+image_dir = '/kaggle/input/brisc2025/brisc2025/segmentation_task/train/images'
+mask_dir = '/kaggle/input/brisc2025/brisc2025/segmentation_task/train/masks'
+
+print("Sample image files:", os.listdir(image_dir)[:5])
+print("Sample mask files:", os.listdir(mask_dir)[:5])
+
+image_files = [f for f in os.listdir(image_dir) if f.endswith('.jpg')]
+mask_files = [f for f in os.listdir(mask_dir) if f.endswith('.png')]
+
+image_basenames = {os.path.splitext(f)[0]: f for f in image_files}
+mask_basenames = {os.path.splitext(f)[0]: f for f in mask_files}
+
+common_keys = set(image_basenames.keys()) & set(mask_basenames.keys()) # make them set of tuples
+
+data = []
+for key in sorted(common_keys):
+    image_path = os.path.join(image_dir, image_basenames[key])
+    mask_path = os.path.join(mask_dir, mask_basenames[key])
+    data.append({'image_path': image_path, 'mask_path': mask_path})
+
+df = pd.DataFrame(data)
+
+full_dataset = BRISC2025Dataset(df)
+
+train_size = int(0.8 * len(full_dataset))
+val_size = len(full_dataset) - train_size
+
+torch.manual_seed(42)
+train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+
+
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
 

@@ -1,9 +1,32 @@
-import os
+import os, cv2
 import glob
 import nibabel as nib  # 用于加载 NIfTI 格式文件
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+
+class BRISC2025Dataset(Dataset):
+    def __init__(self, df, transform=None):
+        self.df = df.reset_index(drop=True)
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.df)
+
+    def __getitem__(self, idx):
+        image = cv2.imread(self.df.loc[idx, 'image_path'])
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        mask = cv2.imread(self.df.loc[idx, 'mask_path'], cv2.IMREAD_GRAYSCALE)
+
+        image = cv2.resize(image, (256, 256))
+        mask = cv2.resize(mask, (256, 256))
+
+        image = image.astype(np.float32) / 255.0
+        mask = (mask > 127).astype(np.float32)  # Binary therholding 
+
+        image = np.transpose(image, (2, 0, 1))  # for opencv I think
+
+        return torch.tensor(image), torch.tensor(mask).unsqueeze(0)
 
 class BraTSDataset(Dataset):
     """
