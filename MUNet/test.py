@@ -32,7 +32,7 @@ transform = transforms.Compose([
 ])
 
 # 加载测试数据集
-test_dataset = CustomDataset(TEST_DATASET_PATH, transform=transform)
+test_dataset = BraTSDataset(TEST_DATASET_PATH, transform=transform)
 test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
 
 # 加载模型
