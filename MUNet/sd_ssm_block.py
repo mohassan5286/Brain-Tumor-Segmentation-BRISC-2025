@@ -85,7 +85,7 @@ class SDSSMBlock(nn.Module):
 
         # Fusion: Combine features from both branches
         self.fusion_linear = nn.Linear(out_channels, out_channels)
-        self.final_layer_norm = nn.LayerNorm([out_channels, 1, 1])
+        self.final_layer_norm = nn.LayerNorm(out_channels)
         self.output_conv = nn.Conv2d(out_channels, out_channels, kernel_size=1)
 
     def forward(self, x):
@@ -106,7 +106,7 @@ class SDSSMBlock(nn.Module):
 
         # X2 Branch
         print(f"[SDSSMBlock] Processing X2 Branch...")
-        x2 = self.layer_norm(x2.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)         # layer norm is done on the last dim (this is layer norm pixel wise not layer wise)
+        x2 = self.layer_norm(x2)       # layer norm is done on the last dim (this is layer norm pixel wise not layer wise)
         x2 = self.linear1(x2.permute(0, 2, 3, 1))  # (B, H, W, C)
         x2 = self.silu(x2).permute(0, 3, 1, 2)    # (B, C, H, W)
         x2 = self.sdconv4(x2)
