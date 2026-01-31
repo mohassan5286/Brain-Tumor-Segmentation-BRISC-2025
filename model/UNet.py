@@ -126,12 +126,8 @@ class UNet(nn.Module):
         
         self.final_conv = nn.Conv2d(feature_dims, out_channels, kernel_size=1)
 
-    def forward(self, x, tumors_type):
+    def forward(self, x, tumors_type_idx):
         # Encoder
-        class_mapping = {'me': 0, 'gl': 1, 'pi': 2}
-        tumors_type_idx = [class_mapping.get(t, 0) for t in tumors_type]
-        tumors_type_idx = torch.tensor(tumors_type_idx, device=x.device, dtype=torch.long)
-        
         embedding = self.tumor_embed(tumors_type_idx).view(x.size(0), 1, 256, 256)
         x = torch.cat([x, embedding], dim = 1)
         

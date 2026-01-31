@@ -31,14 +31,19 @@ def count_parameters(model, trainable_only=False):
         return sum(p.numel() for p in model.parameters())
 
 def train(model, train_loader, optimizer, criterion, iou_metric, device):
+    class_mapping = {'me': 0, 'gl': 1, 'pi': 2}
+    
     model.train()
     running_loss = 0.0
     gl_train_iou, me_train_iou, pi_train_iou = [], [], []
 
     for inputs, targets, tumors_type in train_loader:
         inputs, targets = inputs.to(device), targets.to(device)
+        tumors_type_idx = [class_mapping.get(t, 0) for t in tumors_type]
+        tumors_type_idx = torch.tensor(tumors_type_idx, dtype=torch.long).to(device)
+
         optimizer.zero_grad()
-        outputs = model(inputs, tumors_type)
+        outputs = model(inputs, tumors_type_idx)
 
         loss = criterion(outputs, targets)
         loss.backward()
@@ -74,6 +79,8 @@ def train(model, train_loader, optimizer, criterion, iou_metric, device):
     print(f'GL: {gl_miou:.4f} ({len_gl}) | ME: {me_miou:.4f} ({len_me}) | PI: {pi_miou:.4f} ({len_pi}) | Weighted: {weighted_miou:.4f}')
 
 def validate(model, val_loader, criterion, iou_metric, device, epoch):
+    class_mapping = {'me': 0, 'gl': 1, 'pi': 2}
+    
     model.eval()
     running_loss = 0.0
     val_outputs = []
@@ -82,7 +89,10 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
     with torch.no_grad():
         for inputs, targets, tumors_type in val_loader:
             inputs, targets = inputs.to(device), targets.to(device)
-            outputs = model(inputs, tumors_type)
+            tumors_type_idx = [class_mapping.get(t, 0) for t in tumors_type]
+            tumors_type_idx = torch.tensor(tumors_type_idx, dtype=torch.long).to(device)
+            
+            outputs = model(inputs, tumors_type_idx)
             val_outputs.append(outputs)
             loss = criterion(outputs, targets)
             running_loss += loss.item()
