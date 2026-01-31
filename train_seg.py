@@ -38,7 +38,7 @@ def train(model, train_loader, optimizer, criterion, iou_metric, device):
     for inputs, targets, tumors_type in train_loader:
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
-        outputs = model(inputs)
+        outputs = model(inputs, tumors_type)
 
         loss = criterion(outputs, targets)
         loss.backward()
@@ -82,7 +82,7 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
     with torch.no_grad():
         for inputs, targets, tumors_type in val_loader:
             inputs, targets = inputs.to(device), targets.to(device)
-            outputs = model(inputs)
+            outputs = model(inputs, tumors_type)
             val_outputs.append(outputs)
             loss = criterion(outputs, targets)
             running_loss += loss.item()
