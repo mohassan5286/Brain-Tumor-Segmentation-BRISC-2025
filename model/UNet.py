@@ -21,8 +21,10 @@ class DoubleConv(nn.Module):
 class UNet(nn.Module):
     def __init__(self, in_channels, out_channels, feature_dims):
         super(UNet, self).__init__()
+
+        self.tumor_embed = nn.Embedding(3, 256 * 256)
         
-        self.encoder1 = DoubleConv(in_channels, feature_dims)
+        self.encoder1 = DoubleConv(in_channels + 1, feature_dims)
         self.encoder2 = DoubleConv(feature_dims, feature_dims * 2)
         self.encoder3 = DoubleConv(feature_dims * 2, feature_dims * 4)
         self.encoder4 = DoubleConv(feature_dims * 4, feature_dims * 8)
@@ -124,8 +126,11 @@ class UNet(nn.Module):
         
         self.final_conv = nn.Conv2d(feature_dims, out_channels, kernel_size=1)
 
-    def forward(self, x):
+    def forward(self, x, tumor_type):
         # Encoder
+        embedding = self.tumor_embed(tumor_type).view(tumor_type.shape[0], 1, 256, 256)
+        x = torch.cat([x, embedding], dim = 1)
+        
         enc1 = self.encoder1(x)
         enc2 = self.encoder2(self.pool(enc1))
         enc3 = self.encoder3(self.pool(enc2))
