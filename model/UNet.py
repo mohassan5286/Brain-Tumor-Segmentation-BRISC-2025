@@ -132,7 +132,7 @@ class UNet(nn.Module):
         tumors_type_idx = [class_mapping.get(t, 0) for t in tumors_type]
         tumors_type_idx = torch.tensor(tumors_type_idx, device=x.device, dtype=torch.long)
         
-        embedding = self.tumor_embed(tumors_type_idx).view(tumors_type.shape[0], 1, 256, 256)
+        embedding = self.tumor_embed(tumors_type_idx).view(x.size(0), 1, 256, 256)
         x = torch.cat([x, embedding], dim = 1)
         
         enc1 = self.encoder1(x)
