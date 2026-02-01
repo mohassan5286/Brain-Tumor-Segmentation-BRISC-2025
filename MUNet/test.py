@@ -38,15 +38,6 @@ transform = transforms.Compose([
                          std=[0.229, 0.224, 0.22])
 ])
 
-
-# 数据增强
-transform = transforms.Compose([
-    transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], 
-                         std=[0.229, 0.224, 0.22])
-])
-
 image_dir = '/kaggle/input/brisc2025/brisc2025/segmentation_task/test/images'
 mask_dir = '/kaggle/input/brisc2025/brisc2025/segmentation_task/test/masks'
 
