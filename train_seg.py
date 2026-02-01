@@ -23,6 +23,28 @@ def dice_coefficient(pred, target, threshold=0.5):
     
     return 2.0 * intersection / union
 
+class DiceFocalLoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(DiceFocalLoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1):
+        alpha = 0.5
+        gamma = 2
+
+        #flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+        
+        intersection = (inputs * targets).sum()                            
+        dice_loss = 1 - (2.*intersection + smooth)/(inputs.sum() + targets.sum() + smooth)  
+        
+        BCE = nn.functional.binary_cross_entropy(inputs, targets, reduction='mean')
+        BCE_EXP = torch.exp(-BCE)
+        focal_loss = alpha * (1-BCE_EXP)**gamma * BCE
+        
+        dice_focal = dice_loss + focal_loss
+
+        return dice_focal
 
 def count_parameters(model, trainable_only=False):
     if trainable_only:
@@ -150,7 +172,7 @@ def main(args):
     model = torch.nn.DataParallel(model, device_ids = [0, 1])
     
     # Define loss function and optimizer
-    criterion = nn.BCELoss()  # Binary cross-entropy loss
+    criterion = DiceFocalLoss()  # Binary cross-entropy loss
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     iou_metric = BinaryJaccardIndex().to(device)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
