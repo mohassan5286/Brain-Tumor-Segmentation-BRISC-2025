@@ -125,8 +125,14 @@ class UNet(nn.Module):
             print('[INFO]: Freezing hidden layers...')
             for params in self.swin.parameters():
                 params.requires_grad = False
-    
-        self.upconv4 = nn.ConvTranspose2d(3, feature_dims * 8, kernel_size=2, stride=2)
+        
+        self.swin.head = nn.Linear(
+            in_features=768, 
+            out_features=2, 
+            bias=True
+        )
+        
+        self.upconv4 = nn.ConvTranspose2d(feature_dims * 16, feature_dims * 8, kernel_size=2, stride=2)
         self.decoder4 = DoubleConv(feature_dims * 16, feature_dims * 8)
         self.upconv3 = nn.ConvTranspose2d(feature_dims * 8, feature_dims * 4, kernel_size=2, stride=2)
         self.decoder3 = DoubleConv(feature_dims * 8, feature_dims * 4)
