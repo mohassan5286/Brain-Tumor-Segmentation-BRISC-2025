@@ -28,7 +28,7 @@ class DiceFocalLoss(nn.Module):
         super(DiceFocalLoss, self).__init__()
 
     def forward(self, inputs, targets, smooth=1):
-        alpha = 0.5
+        alpha = 0.8
         gamma = 2
 
         #flatten label and prediction tensors
