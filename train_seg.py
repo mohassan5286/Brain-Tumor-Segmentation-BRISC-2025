@@ -56,6 +56,7 @@ def train(model, train_loader, optimizer, criterion, iou_metric, device):
                 me_train_iou.append(train_iou)
             elif tumors_type[i] == 'pi':
                 pi_train_iou.append(train_iou)
+        break
 
     # Calculate weighted mIoU
     len_gl = len(gl_train_iou)
@@ -163,6 +164,7 @@ def main(args):
         start_time = time.time()
         
         train(model, train_loader, optimizer, criterion, iou_metric, device)
+        break
         val_loss = validate(model, val_loader, criterion, iou_metric, device, epoch)
         
         scheduler.step(val_loss)
