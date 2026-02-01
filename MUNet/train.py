@@ -82,7 +82,7 @@ scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)  # 每
 
 # 定义损失函数
 def compute_loss(preds, targets):
-    return total_loss(preds, targets, alpha=0, beta=1.0, gamma=0)  # 调用自定义的加权损失函数
+    return total_loss(preds, targets, alpha=1.0, beta=1.0, gamma=1.0)  # 调用自定义的加权损失函数
 
 # 训练函数
 def train_fn(loader, model, optimizer):
