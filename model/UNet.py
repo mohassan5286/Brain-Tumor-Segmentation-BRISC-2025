@@ -127,7 +127,7 @@ class UNet(nn.Module):
         
         self.swin.head = nn.Linear(
             in_features=768, 
-            out_features=num_classes, 
+            out_features=2, 
             bias=True
         )
         
