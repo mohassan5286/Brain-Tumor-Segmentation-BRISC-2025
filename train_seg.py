@@ -28,7 +28,6 @@ class DiceFocalLoss(nn.Module):
         super(DiceFocalLoss, self).__init__()
 
     def forward(self, inputs, targets, smooth=1):
-        alpha = 0.8
         gamma = 2
 
         #flatten label and prediction tensors
@@ -40,7 +39,7 @@ class DiceFocalLoss(nn.Module):
         
         BCE = nn.functional.binary_cross_entropy(inputs, targets, reduction='mean')
         BCE_EXP = torch.exp(-BCE)
-        focal_loss = alpha * (1-BCE_EXP)**gamma * BCE
+        focal_loss = (1-BCE_EXP)**gamma * BCE
         
         dice_focal = dice_loss + focal_loss
 
