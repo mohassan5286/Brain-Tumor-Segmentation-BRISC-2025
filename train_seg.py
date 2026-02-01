@@ -23,6 +23,24 @@ def dice_coefficient(pred, target, threshold=0.5):
     
     return 2.0 * intersection / union
 
+class JaccardLoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(JaccardLoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1):
+        #flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+        
+        #intersection is equivalent to True Positive count
+        #union is the mutually inclusive area of all labels & predictions 
+        intersection = (inputs * targets).sum()
+        total = (inputs + targets).sum()
+        union = total - intersection 
+        
+        IoU = (intersection + smooth)/(union + smooth)
+                
+        return 1 - IoU
 
 def count_parameters(model, trainable_only=False):
     if trainable_only:
@@ -150,7 +168,7 @@ def main(args):
     model = torch.nn.DataParallel(model, device_ids = [0, 1])
     
     # Define loss function and optimizer
-    criterion = nn.BCELoss()  # Binary cross-entropy loss
+    criterion = JaccardLoss()  # Binary cross-entropy loss
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     iou_metric = BinaryJaccardIndex().to(device)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
