@@ -180,7 +180,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train UNet model on Pneumonia chest X-ray segmentation dataset")
+    parser = argparse.ArgumentParser(description="Train UNet on brain tumor segmentation using BRISC 2025 dataset")
     parser.add_argument('--bsz', type=int, default=8, help='Batch size for training')
     parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate for optimizer')
     parser.add_argument('--niter', type=int, default=30, help='Number of training iterations (epochs)')
