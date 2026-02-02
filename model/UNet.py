@@ -47,10 +47,10 @@ class UNet(nn.Module):
             nn.Linear(feature_dims * 2, feature_dims * 1),  # Squeeze
             nn.ReLU(inplace=True))
 
-        self.embed = nn.Embedding(feature_dims * 16,1)
-        self.pe_layer = PositionEmbeddingSine(feature_dims * 16 // 2, normalize=True)
+        self.embed = nn.Embedding(768,1)
+        self.pe_layer = PositionEmbeddingSine(768 // 2, normalize=True)
         self.transformer = Transformer(
-            d_model=feature_dims * 16,
+            d_model=768,
             dropout=0.1,
             nhead=4,
             dim_feedforward=feature_dims * 4,
@@ -126,7 +126,7 @@ class UNet(nn.Module):
             for params in self.swin.parameters():
                 params.requires_grad = False
     
-        self.upconv4 = nn.ConvTranspose2d(768, feature_dims * 8, kernel_size=2, stride=2)
+        self.upconv4 = nn.ConvTranspose2d(3, feature_dims * 8, kernel_size=2, stride=2)
         self.decoder4 = DoubleConv(feature_dims * 16, feature_dims * 8)
         self.upconv3 = nn.ConvTranspose2d(feature_dims * 8, feature_dims * 4, kernel_size=2, stride=2)
         self.decoder3 = DoubleConv(feature_dims * 8, feature_dims * 4)
