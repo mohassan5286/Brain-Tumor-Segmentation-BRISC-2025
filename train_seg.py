@@ -47,7 +47,7 @@ def train(model, train_loader, optimizer, criterion, iou_metric, device):
 
         running_loss += loss.item()
 
-        preds = (outputs > 0.5).float()
+        preds = torch.sigmoid(outputs > 0.5).float()
         
         for i in range(inputs.size(0)):
             train_iou = iou_metric(preds[i].unsqueeze(0).int(), targets[i].unsqueeze(0).int()).item()
