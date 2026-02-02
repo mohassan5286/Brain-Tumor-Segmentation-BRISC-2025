@@ -23,6 +23,25 @@ def dice_coefficient(pred, target, threshold=0.5):
     
     return 2.0 * intersection / union
 
+class JaccardCrossEntropyLoss(nn.Module):
+    def __init__(self):
+        super(JaccardCrossEntropyLoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1):
+        #flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+        
+        intersection = (inputs * targets).sum()
+        total = (inputs + targets).sum()
+        union = total - intersection 
+        
+        IoU = (intersection + smooth)/(union + smooth)
+
+        BCE = nn.functional.binary_cross_entropy(inputs, targets, reduction='mean')
+        jaccard_cross_entropy = BCE + (1 - IoU)
+        
+        return jaccard_cross_entropy
 
 def count_parameters(model, trainable_only=False):
     if trainable_only:
@@ -150,7 +169,7 @@ def main(args):
     model = torch.nn.DataParallel(model, device_ids = [0, 1])
     
     # Define loss function and optimizer
-    criterion = nn.BCELoss()  # Binary cross-entropy loss
+    criterion = JaccardCrossEntropyLoss()  # Jaccard Cross Entropy Loss loss
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     iou_metric = BinaryJaccardIndex().to(device)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
