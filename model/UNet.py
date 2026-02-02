@@ -179,6 +179,7 @@ class UNet(nn.Module):
 
         bottleneck_avg = bottleneck.mean(dim=(2, 3), keepdim=True).squeeze(-1)
         if self.verbose: print(f"Averaging output: {bottleneck_avg.shape}")
+        if self.verbose: print(f"Bottleneck output: {bottleneck.shape}")
         bottleneck_pe = self.pe_layer(bottleneck)
         
         transformer_output = self.transformer(bottleneck, None, bottleneck_avg, self.embed.weight, bottleneck_pe) 
