@@ -154,13 +154,14 @@ class UNet(nn.Module):
         if verbose: print(f"Bottleneck pre-transformer: {bottleneck.shape}")
         bottleneck = self.bottleneck_conv(bottleneck)
         if verbose: print(f"Bottleneck pre-transformer: {bottleneck.shape}")
-        bottleneck_avg = self.swin(bottleneck)
-        if verbose: print(f"Swin output: {bottleneck_avg.shape}")
+        # bottleneck_avg = self.swin(bottleneck)
+        # if verbose: print(f"Swin output: {bottleneck_avg.shape}")
         
         b, c, h, w = bottleneck.shape
 
 
-        # bottleneck_avg = bottleneck.mean(dim=(2, 3), keepdim=True).squeeze(-1)
+        bottleneck_avg = bottleneck.mean(dim=(2, 3), keepdim=True).squeeze(-1)
+        if verbose: print(f"Averaging output: {bottleneck_avg.shape}")
         bottleneck_pe = self.pe_layer(bottleneck)
         
         transformer_output = self.transformer(bottleneck, None, bottleneck_avg, self.embed.weight, bottleneck_pe) 
