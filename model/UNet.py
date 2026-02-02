@@ -113,7 +113,7 @@ class UNet(nn.Module):
         )
 
         
-        self.bottleneck_conv = DoubleConv(feature_dims * 8, feature_dims * 16)
+        self.bottleneck_conv = DoubleConv(feature_dims * 8, 3)
 
         self.swin = torch.nn.Sequential(*(list(models.swin_t(weights='DEFAULT').children())[:-2]))
         
@@ -126,7 +126,7 @@ class UNet(nn.Module):
             for params in self.swin.parameters():
                 params.requires_grad = False
     
-        self.upconv4 = nn.ConvTranspose2d(feature_dims * 16, feature_dims * 8, kernel_size=2, stride=2)
+        self.upconv4 = nn.ConvTranspose2d(768, feature_dims * 8, kernel_size=2, stride=2)
         self.decoder4 = DoubleConv(feature_dims * 16, feature_dims * 8)
         self.upconv3 = nn.ConvTranspose2d(feature_dims * 8, feature_dims * 4, kernel_size=2, stride=2)
         self.decoder3 = DoubleConv(feature_dims * 8, feature_dims * 4)
@@ -152,15 +152,15 @@ class UNet(nn.Module):
         # Bottleneck
         bottleneck = self.pool(enc4)
         if verbose: print(f"Bottleneck pre-transformer: {bottleneck.shape}")
-        # bottleneck = self.swin(bottleneck)
-        if verbose: print(f"Swin output: {bottleneck.shape}")
-        bottleneck = self.bottleneck_conv(bottleneck)
+        bottleneck_avg = self.bottleneck_conv(bottleneck)
         if verbose: print(f"Bottleneck pre-transformer: {bottleneck.shape}")
+        bottleneck_avg = self.swin(bottleneck_avg)
+        if verbose: print(f"Swin output: {bottleneck_avg.shape}")
         
         b, c, h, w = bottleneck.shape
 
 
-        bottleneck_avg = bottleneck.mean(dim=(2, 3), keepdim=True).squeeze(-1)
+        # bottleneck_avg = bottleneck.mean(dim=(2, 3), keepdim=True).squeeze(-1)
         bottleneck_pe = self.pe_layer(bottleneck)
         
         transformer_output = self.transformer(bottleneck, None, bottleneck_avg, self.embed.weight, bottleneck_pe) 
