@@ -167,7 +167,7 @@ class UNet(nn.Module):
 
         bottleneck = self.before_swin_1x1_conv(bottleneck) 
         if verbose: print(f"Before Bottleneck swin: {bottleneck.shape}")
-        bottleneck = self.swin_bottleneck(bottleneck)
+        bottleneck = self.swin_bottleneck(bottleneck.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
         if verbose: print(f"Bottleneck swin: {bottleneck.shape}")
         bottleneck = self.after_swin_1x1_conv(bottleneck)
         if verbose: print(f"After Bottleneck swin: {bottleneck.shape}")
