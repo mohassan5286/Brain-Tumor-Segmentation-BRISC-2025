@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .transformer import PositionEmbeddingSine, Transformer
 from torchvision import models
+from torchvision.models.feature_extraction import create_feature_extractor
 
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -114,23 +115,17 @@ class UNet(nn.Module):
         
         self.bottleneck_conv = DoubleConv(feature_dims * 8, feature_dims * 16)
 
-        # self.swin = models.swin_t(weights='DEFAULT')
+        self.swin = torch.nn.Sequential(*(list(models.swin_t(weights='DEFAULT').children())[:-2]))
         
-        # if fine_tune:
-        #     print('[INFO]: Fine-tuning all layers...')
-        #     for params in self.swin.parameters():
-        #         params.requires_grad = True
-        # if not fine_tune:
-        #     print('[INFO]: Freezing hidden layers...')
-        #     for params in self.swin.parameters():
-        #         params.requires_grad = False
-        
-        # self.swin.head = nn.Linear(
-        #     in_features=feature_dims * 16 * 16 * 16, 
-        #     out_features=feature_dims * 16 * 16 * 16, 
-        #     bias=False
-        # )
-        
+        if fine_tune:
+            print('[INFO]: Fine-tuning all layers...')
+            for params in self.swin.parameters():
+                params.requires_grad = True
+        if not fine_tune:
+            print('[INFO]: Freezing hidden layers...')
+            for params in self.swin.parameters():
+                params.requires_grad = False
+    
         self.upconv4 = nn.ConvTranspose2d(feature_dims * 16, feature_dims * 8, kernel_size=2, stride=2)
         self.decoder4 = DoubleConv(feature_dims * 16, feature_dims * 8)
         self.upconv3 = nn.ConvTranspose2d(feature_dims * 8, feature_dims * 4, kernel_size=2, stride=2)
@@ -157,18 +152,18 @@ class UNet(nn.Module):
         # Bottleneck
         bottleneck = self.pool(enc4)
         if verbose: print(f"Bottleneck pre-transformer: {bottleneck.shape}")
+        bottleneck = self.swin(bottleneck)
+        if verbose: print(f"Swin output: {bottleneck.shape}")
         bottleneck = self.bottleneck_conv(bottleneck)
         if verbose: print(f"Bottleneck pre-transformer: {bottleneck.shape}")
         
         b, c, h, w = bottleneck.shape
 
-        # bottleneck = self.swin(bottleneck.reshape(b, c*h*w)).reshape(b, c, h, w)
 
-        bottleneck_avg = bottleneck.mean(dim=(2, 3), keepdim=True).squeeze(-1)
-        if verbose: print(f"Transformer output: {bottleneck_avg.shape}")
+        # bottleneck_avg = bottleneck.mean(dim=(2, 3), keepdim=True).squeeze(-1)
         bottleneck_pe = self.pe_layer(bottleneck)
         
-        transformer_output = self.transformer(bottleneck, None, bottleneck_avg, self.embed.weight, bottleneck_pe) 
+        transformer_output = self.transformer(bottleneck, None, bottleneck, self.embed.weight, bottleneck_pe) 
         if verbose: print(f"Transformer output: {transformer_output.shape}")
 
         transformer_output_expanded = transformer_output.unsqueeze(-1) 
