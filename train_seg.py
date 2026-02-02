@@ -88,7 +88,7 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
             loss = criterion(outputs, targets, alpha=0.25, gamma=2, reduction="mean")
             running_loss += loss.item()
 
-            preds = (outputs > 0.5).float()
+            preds = torch.sigmoid(outputs > 0.5).float()
 
             for i in range(inputs.size(0)):
                 val_iou = iou_metric(preds[i].unsqueeze(0).int(), targets[i].unsqueeze(0).int()).item()
