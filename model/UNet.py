@@ -3,29 +3,62 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .transformer import PositionEmbeddingSine, Transformer
 
-class DoubleConv(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(DoubleConv, self).__init__()
-        self.double_conv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+class ResidualDoubleConv(nn.Module):
+    def __init__(self, in_channels, out_channels, dilations=[1, 1]):
+        super(ResidualDoubleConv, self).__init__()
+        
+        d1, d2 = dilations
+
+        # F(x): The main processing path (Convolutional Block)
+        self.conv_block = nn.Sequential(
+            nn.BatchNorm2d(in_channels), # Pre-activation ResNet style is often preferred, but standard is fine too
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=d1, dilation=d1, bias=False),
+            
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=d2, dilation=d2, bias=False)
         )
 
+        # Shortcut path: x
+        # If input channels != output channels, we must project x to match output dimensions
+        if in_channels != out_channels:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False),
+                nn.BatchNorm2d(out_channels)
+            )
+        else:
+            self.shortcut = nn.Identity() # Do nothing if shapes match
+
     def forward(self, x):
-        return self.double_conv(x)
+        # y = F(x) + x
+        residual = self.shortcut(x)
+        features = self.conv_block(x)
+        return features + residual
+
+# class DoubleConv(nn.Module):
+#     def __init__(self, in_channels, out_channels):
+#         super(DoubleConv, self).__init__()
+#         self.double_conv = nn.Sequential(
+#             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+#             nn.BatchNorm2d(out_channels),
+#             nn.ReLU(inplace=True),
+#             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+#             nn.BatchNorm2d(out_channels),
+#             nn.ReLU(inplace=True)
+#         )
+
+#     def forward(self, x):
+#         return self.double_conv(x)
 
 class UNet(nn.Module):
     def __init__(self, in_channels, out_channels, feature_dims):
         super(UNet, self).__init__()
         
-        self.encoder1 = DoubleConv(in_channels, feature_dims)
-        self.encoder2 = DoubleConv(feature_dims, feature_dims * 2)
-        self.encoder3 = DoubleConv(feature_dims * 2, feature_dims * 4)
-        self.encoder4 = DoubleConv(feature_dims * 4, feature_dims * 8)
+        self.encoder1 = ResidualDoubleConv(in_channels, feature_dims)
+        self.encoder2 = ResidualDoubleConv(feature_dims, feature_dims * 2)
+        self.encoder3 = ResidualDoubleConv(feature_dims * 2, feature_dims * 4)
+        self.encoder4 = ResidualDoubleConv(feature_dims * 4, feature_dims * 8)
 
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         
@@ -111,16 +144,16 @@ class UNet(nn.Module):
         )
 
         
-        self.bottleneck_conv = DoubleConv(feature_dims * 8, feature_dims * 16)
+        self.bottleneck_conv = ResidualDoubleConv(feature_dims * 8, feature_dims * 16)
         
         self.upconv4 = nn.ConvTranspose2d(feature_dims * 16, feature_dims * 8, kernel_size=2, stride=2)
-        self.decoder4 = DoubleConv(feature_dims * 16, feature_dims * 8)
+        self.decoder4 = ResidualDoubleConv(feature_dims * 16, feature_dims * 8)
         self.upconv3 = nn.ConvTranspose2d(feature_dims * 8, feature_dims * 4, kernel_size=2, stride=2)
-        self.decoder3 = DoubleConv(feature_dims * 8, feature_dims * 4)
+        self.decoder3 = ResidualDoubleConv(feature_dims * 8, feature_dims * 4)
         self.upconv2 = nn.ConvTranspose2d(feature_dims * 4, feature_dims * 2, kernel_size=2, stride=2)
-        self.decoder2 = DoubleConv(feature_dims * 4, feature_dims * 2)
+        self.decoder2 = ResidualDoubleConv(feature_dims * 4, feature_dims * 2)
         self.upconv1 = nn.ConvTranspose2d(feature_dims * 2, feature_dims, kernel_size=2, stride=2)
-        self.decoder1 = DoubleConv(feature_dims * 2, feature_dims)
+        self.decoder1 = ResidualDoubleConv(feature_dims * 2, feature_dims)
         
         self.final_conv = nn.Conv2d(feature_dims, out_channels, kernel_size=1)
 
