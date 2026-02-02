@@ -150,7 +150,7 @@ def main(args):
     model = torch.nn.DataParallel(model, device_ids = [0, 1])
     
     # Define loss function and optimizer
-    criterion = nn.BCELoss()  # Binary cross-entropy loss
+    criterion = nn.BCEWithLogitsLoss()  # Binary cross-entropy loss with logits
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     iou_metric = BinaryJaccardIndex().to(device)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
