@@ -154,8 +154,8 @@ class UNet(nn.Module):
         if verbose: print(f"Bottleneck pre-transformer: {bottleneck.shape}")
         bottleneck = self.bottleneck_conv(bottleneck)
         if verbose: print(f"Bottleneck pre-transformer: {bottleneck.shape}")
-        # bottleneck_avg = self.swin(bottleneck)
-        # if verbose: print(f"Swin output: {bottleneck_avg.shape}")
+        bottleneck_avg = self.swin(bottleneck)
+        if verbose: print(f"Swin output: {bottleneck_avg.shape}")
         
         b, c, h, w = bottleneck.shape
 
