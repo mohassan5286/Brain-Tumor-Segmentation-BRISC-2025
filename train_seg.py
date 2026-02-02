@@ -10,6 +10,7 @@ from torchmetrics.classification import BinaryJaccardIndex
 from model.UNet import UNet  # Ensure UNet class is defined in model/unet.py
 from data.data_loader_segmentation import get_data_loader
 from torchvision.utils import save_image
+from loss import total_loss
 
 def dice_coefficient(pred, target, threshold=0.5):
     pred = (pred > threshold).float()
@@ -150,7 +151,7 @@ def main(args):
     model = torch.nn.DataParallel(model, device_ids = [0, 1])
     
     # Define loss function and optimizer
-    criterion = nn.BCELoss()  # Binary cross-entropy loss
+    criterion = total_loss
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     iou_metric = BinaryJaccardIndex().to(device)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
