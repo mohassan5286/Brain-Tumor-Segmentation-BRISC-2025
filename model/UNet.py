@@ -4,19 +4,25 @@ import torch.nn.functional as F
 from .transformer import PositionEmbeddingSine, Transformer
 
 class DoubleConv(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, dilations=(1,1)):
         super(DoubleConv, self).__init__()
+        
+        d1, d2 = dilations
+        
         self.double_conv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels, out_channels, 3, padding=d1, dilation=d1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+
+            nn.Conv2d(out_channels, out_channels, 3, padding=d2, dilation=d2),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
+
         )
 
     def forward(self, x):
         return self.double_conv(x)
+
 
 class UNet(nn.Module):
     def __init__(self, in_channels, out_channels, feature_dims):
@@ -25,7 +31,8 @@ class UNet(nn.Module):
         self.encoder1 = DoubleConv(in_channels, feature_dims)
         self.encoder2 = DoubleConv(feature_dims, feature_dims * 2)
         self.encoder3 = DoubleConv(feature_dims * 2, feature_dims * 4)
-        self.encoder4 = DoubleConv(feature_dims * 4, feature_dims * 8)
+        self.encoder4 = DoubleConv(feature_dims * 4, feature_dims * 8, dilations=(1,2))
+
 
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         
@@ -111,7 +118,7 @@ class UNet(nn.Module):
         )
 
         
-        self.bottleneck_conv = DoubleConv(feature_dims * 8, feature_dims * 16)
+        self.bottleneck_conv = DoubleConv(feature_dims * 8, feature_dims * 16, dilations=(2,3))
         
         self.upconv4 = nn.ConvTranspose2d(feature_dims * 16, feature_dims * 8, kernel_size=2, stride=2)
         self.decoder4 = DoubleConv(feature_dims * 16, feature_dims * 8)
