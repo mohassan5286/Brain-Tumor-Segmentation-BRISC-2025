@@ -113,24 +113,28 @@ class UNet(nn.Module):
         )
 
         
-        self.bottleneck_conv = DoubleConv(feature_dims * 8, 3)
+        # self.bottleneck_conv = DoubleConv(feature_dims * 8, feature_dims * 16)
 
-        self.swin = torch.nn.Sequential(*(list(models.swin_t(weights='DEFAULT').children())[:-2]))
+        full_swin = models.swin_t(weights='DEFAULT')
         
         if fine_tune:
             print('[INFO]: Fine-tuning all layers...')
-            for params in self.swin.parameters():
+            for params in full_swin.parameters():
                 params.requires_grad = True
         if not fine_tune:
             print('[INFO]: Freezing hidden layers...')
-            for params in self.swin.parameters():
+            for params in full_swin.parameters():
                 params.requires_grad = False
         
-        self.swin.head = nn.Linear(
-            in_features=768, 
-            out_features=2, 
-            bias=True
-        )
+        self.swin_bottleneck = full_swin.features[7]
+
+        self.before_swin_1x1_conv = nn.Conv2d(feature_dims * 8, 768, kernel_size=1, stride=1)
+        self.after_swin_1x1_conv = nn.Conv2d(768, feature_dims * 16, kernel_size=1, stride=1)
+
+        print(self.swin_bottleneck)
+        
+        del full_swin
+        torch.cuda.empty_cache()
         
         self.upconv4 = nn.ConvTranspose2d(feature_dims * 16, feature_dims * 8, kernel_size=2, stride=2)
         self.decoder4 = DoubleConv(feature_dims * 16, feature_dims * 8)
@@ -158,10 +162,15 @@ class UNet(nn.Module):
         # Bottleneck
         bottleneck = self.pool(enc4)
         if verbose: print(f"Bottleneck pre-transformer: {bottleneck.shape}")
-        bottleneck = self.bottleneck_conv(bottleneck)
-        if verbose: print(f"Bottleneck pre-transformer: {bottleneck.shape}")
-        bottleneck_avg = self.swin(bottleneck)
-        if verbose: print(f"Swin output: {bottleneck_avg.shape}")
+        # bottleneck = self.bottleneck_conv(bottleneck)
+        # if verbose: print(f"Bottleneck pre-transformer: {bottleneck.shape}")
+
+        bottleneck = self.before_swin_1x1_conv(bottleneck) 
+        if verbose: print(f"Before Bottleneck swin: {bottleneck.shape}")
+        bottleneck = self.swin_bottleneck(bottleneck)
+        if verbose: print(f"Bottleneck swin: {bottleneck.shape}")
+        bottleneck = self.after_swin_1x1_conv(bottleneck)
+        if verbose: print(f"After Bottleneck swin: {bottleneck.shape}")
         
         b, c, h, w = bottleneck.shape
 
