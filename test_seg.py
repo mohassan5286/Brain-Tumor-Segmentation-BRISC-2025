@@ -17,7 +17,7 @@ def generate_masks(test_loader, model, output_dir):
         for i, (inputs, _) in enumerate(test_loader):
             inputs = inputs.to(device)
             outputs = model(inputs)
-            predictions = torch.sigmoid(outputs > 0.5).float()
+            predictions = (torch.sigmoid(outputs) > 0.5).float()
 
 
             for j in range(inputs.size(0)):
