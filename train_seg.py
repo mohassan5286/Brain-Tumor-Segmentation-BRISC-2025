@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torchvision.ops import sigmoid_focal_loss
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchmetrics.classification import BinaryJaccardIndex
 from model.UNet import UNet  # Ensure UNet class is defined in model/unet.py
@@ -27,19 +28,21 @@ class DiceFocalLoss(nn.Module):
     def __init__(self, weight=None, size_average=True):
         super(DiceFocalLoss, self).__init__()
 
-    def forward(self, inputs, targets, smooth=1):
-        gamma = 2
-
-        #flatten label and prediction tensors
-        inputs = inputs.view(-1)
-        targets = targets.view(-1)
+    def forward(self, logits, targets, smooth=1):
+        probs = torch.sigmoid(logits)
+        probs_flat = probs.view(-1)
+        targets_flat = targets.view(-1)
         
-        intersection = (inputs * targets).sum()                            
-        dice_loss = 1 - (2.*intersection + smooth)/(inputs.sum() + targets.sum() + smooth)  
+        intersection = (probs_flat * targets_flat).sum()                            
+        dice_loss = 1 - (2. * intersection + smooth) / (probs_flat.sum() + targets_flat.sum() + smooth)  
         
-        BCE = nn.functional.binary_cross_entropy(inputs, targets, reduction='mean')
-        BCE_EXP = torch.exp(-BCE)
-        focal_loss = (1-BCE_EXP)**gamma * BCE
+        focal_loss = sigmoid_focal_loss(
+            logits,
+            targets,
+            alpha=0.8,
+            gamma=2,
+            reduction="mean"
+        )
         
         dice_focal = dice_loss + focal_loss
 
