@@ -114,22 +114,22 @@ class UNet(nn.Module):
         
         self.bottleneck_conv = DoubleConv(feature_dims * 8, feature_dims * 16)
 
-        self.swin = models.swin_t(weights='DEFAULT')
+        # self.swin = models.swin_t(weights='DEFAULT')
         
-        if fine_tune:
-            print('[INFO]: Fine-tuning all layers...')
-            for params in self.swin.parameters():
-                params.requires_grad = True
-        if not fine_tune:
-            print('[INFO]: Freezing hidden layers...')
-            for params in self.swin.parameters():
-                params.requires_grad = False
+        # if fine_tune:
+        #     print('[INFO]: Fine-tuning all layers...')
+        #     for params in self.swin.parameters():
+        #         params.requires_grad = True
+        # if not fine_tune:
+        #     print('[INFO]: Freezing hidden layers...')
+        #     for params in self.swin.parameters():
+        #         params.requires_grad = False
         
-        self.swin.head = nn.Linear(
-            in_features=feature_dims * 16 * 16 * 16, 
-            out_features=feature_dims * 16 * 16 * 16, 
-            bias=False
-        )
+        # self.swin.head = nn.Linear(
+        #     in_features=feature_dims * 16 * 16 * 16, 
+        #     out_features=feature_dims * 16 * 16 * 16, 
+        #     bias=False
+        # )
         
         self.upconv4 = nn.ConvTranspose2d(feature_dims * 16, feature_dims * 8, kernel_size=2, stride=2)
         self.decoder4 = DoubleConv(feature_dims * 16, feature_dims * 8)
@@ -162,9 +162,10 @@ class UNet(nn.Module):
         
         b, c, h, w = bottleneck.shape
 
-        bottleneck = self.swin(bottleneck.reshape(b, c*h*w)).reshape(b, c, h, w)
+        # bottleneck = self.swin(bottleneck.reshape(b, c*h*w)).reshape(b, c, h, w)
 
         bottleneck_avg = bottleneck.mean(dim=(2, 3), keepdim=True).squeeze(-1)
+        if verbose: print(f"Transformer output: {bottleneck_avg.shape}")
         bottleneck_pe = self.pe_layer(bottleneck)
         
         transformer_output = self.transformer(bottleneck, None, bottleneck_avg, self.embed.weight, bottleneck_pe) 
