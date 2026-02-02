@@ -39,7 +39,7 @@ class DiceFocalLoss(nn.Module):
         focal_loss = sigmoid_focal_loss(
             logits,
             targets,
-            alpha=0.8,
+            alpha=0.25,
             gamma=2,
             reduction="mean"
         )
