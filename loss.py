@@ -82,11 +82,11 @@ def total_loss(P, G, alpha=1.0, beta=1.0, num_classes=2):
         Total loss value
     """
     # mIoU = mIoU_loss(P, G, num_classes)
-    # dice = dice_loss(P, G)
-    bce = bce_loss(P, G)
+    dice = dice_loss(P, G)
+    # bce = bce_loss(P, G)
     boundary = boundary_loss(P, G)
     
     # Combine the losses using weighted sum
-    total_loss_value = alpha * bce + beta * boundary
+    total_loss_value = alpha * dice + beta * boundary
     
     return total_loss_value
