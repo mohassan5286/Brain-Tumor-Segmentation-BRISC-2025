@@ -21,7 +21,7 @@ class DoubleConv(nn.Module):
         return self.double_conv(x)
 
 class UNet(nn.Module):
-    def __init__(self, in_channels, out_channels, feature_dims, fine_tune=False, verbose=True):
+    def __init__(self, in_channels, out_channels, feature_dims, fine_tune=False, verbose=False):
         super(UNet, self).__init__()
 
         self.verbose=verbose
