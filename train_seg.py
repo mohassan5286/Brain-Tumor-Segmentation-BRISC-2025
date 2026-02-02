@@ -10,6 +10,7 @@ from torchmetrics.classification import BinaryJaccardIndex
 from model.UNet import UNet  # Ensure UNet class is defined in model/unet.py
 from data.data_loader_segmentation import get_data_loader
 from torchvision.utils import save_image
+from torchvision.ops import sigmoid_focal_loss
 
 def dice_coefficient(pred, target, threshold=0.5):
     pred = (pred > threshold).float()
@@ -40,7 +41,7 @@ def train(model, train_loader, optimizer, criterion, iou_metric, device):
         optimizer.zero_grad()
         outputs = model(inputs)
 
-        loss = criterion(outputs, targets)
+        loss = criterion(outputs, targets, alpha=0.25, gamma=2, reduction="mean")
         loss.backward()
         optimizer.step()
 
@@ -84,13 +85,14 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = model(inputs)
             val_outputs.append(outputs)
-            loss = criterion(outputs, targets)
+            loss = criterion(outputs, targets, alpha=0.25, gamma=2, reduction="mean")
             running_loss += loss.item()
 
             preds = (outputs > 0.5).float()
 
             for i in range(inputs.size(0)):
                 val_iou = iou_metric(preds[i].unsqueeze(0).int(), targets[i].unsqueeze(0).int()).item()
+                
                 if tumors_type[i] == 'gl':
                     gl_val_iou.append(val_iou)
                 elif tumors_type[i] == 'me':
@@ -151,6 +153,7 @@ def main(args):
     
     # Define loss function and optimizer
     criterion = nn.BCELoss()  # Binary cross-entropy loss
+    criterion = sigmoid_focal_loss
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     iou_metric = BinaryJaccardIndex().to(device)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
