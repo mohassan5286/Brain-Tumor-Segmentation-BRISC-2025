@@ -126,9 +126,9 @@ class UNet(nn.Module):
                 params.requires_grad = False
         
         self.swin.head = nn.Linear(
-            in_features=768, 
-            out_features=2, 
-            bias=True
+            in_features=feature_dims * 16 * 16 * 16, 
+            out_features=feature_dims * 16 * 16 * 16, 
+            bias=False
         )
         
         self.upconv4 = nn.ConvTranspose2d(feature_dims * 16, feature_dims * 8, kernel_size=2, stride=2)
@@ -161,6 +161,9 @@ class UNet(nn.Module):
         if verbose: print(f"Bottleneck pre-transformer: {bottleneck.shape}")
         
         b, c, h, w = bottleneck.shape
+
+        bottleneck = self.swin(bottleneck.reshape(b, c*h*w)).reshape(b, c, h, w)
+
         bottleneck_avg = bottleneck.mean(dim=(2, 3), keepdim=True).squeeze(-1)
         bottleneck_pe = self.pe_layer(bottleneck)
         
