@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from abl import ABL
 
 # mIoU Loss
 def mIoU_loss(P, G, num_classes):
@@ -69,6 +70,8 @@ def boundary_loss(P, G, threshold=0.5):
 
 bce_loss = torch.nn.BCELoss()
 
+abl = ABL()
+
 # Total Loss (Weighted combination of mIoU, Dice, and Boundary Loss)
 def total_loss(P, G, alpha=1.0, beta=1.0, num_classes=2):
     """
@@ -84,7 +87,7 @@ def total_loss(P, G, alpha=1.0, beta=1.0, num_classes=2):
     # mIoU = mIoU_loss(P, G, num_classes)
     dice = dice_loss(P, G)
     # bce = bce_loss(P, G)
-    boundary = boundary_loss(P, G)
+    boundary = abl(P, G)
     
     # Combine the losses using weighted sum
     total_loss_value = alpha * dice + beta * boundary
