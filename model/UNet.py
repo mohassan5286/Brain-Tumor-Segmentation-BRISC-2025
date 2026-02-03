@@ -55,10 +55,11 @@ class UNet(nn.Module):
     def __init__(self, in_channels, out_channels, feature_dims):
         super(UNet, self).__init__()
         
-        self.encoder1 = ResidualDoubleConv(in_channels, feature_dims)
-        self.encoder2 = ResidualDoubleConv(feature_dims, feature_dims * 2)
-        self.encoder3 = ResidualDoubleConv(feature_dims * 2, feature_dims * 4)
-        self.encoder4 = ResidualDoubleConv(feature_dims * 4, feature_dims * 8)
+        
+        self.encoder1 = ResidualDoubleConv(in_channels, feature_dims, dilations=[1, 1])
+        self.encoder2 = ResidualDoubleConv(feature_dims, feature_dims * 2, dilations=[1, 1])
+        self.encoder3 = ResidualDoubleConv(feature_dims * 2, feature_dims * 4, dilations=[1, 1])
+        self.encoder4 = ResidualDoubleConv(feature_dims * 4, feature_dims * 8, dilations=[1, 2])
 
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         
@@ -144,7 +145,7 @@ class UNet(nn.Module):
         )
 
         
-        self.bottleneck_conv = ResidualDoubleConv(feature_dims * 8, feature_dims * 16)
+        self.bottleneck_conv = ResidualDoubleConv(feature_dims * 8, feature_dims * 16, dilations=[2, 3])
         
         self.upconv4 = nn.ConvTranspose2d(feature_dims * 16, feature_dims * 8, kernel_size=2, stride=2)
         self.decoder4 = ResidualDoubleConv(feature_dims * 16, feature_dims * 8)
