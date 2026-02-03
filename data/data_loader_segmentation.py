@@ -65,7 +65,7 @@ def get_data_loader(data_dir, batch_size):
         transforms.RandomRotation(degrees=15),
         transforms.ColorJitter(brightness=0.2, contrast=0.2),
         RandomGammaCorrection(gamma_range=(0.8, 1.2)),
-        v2.GaussianNoise(mean=0.0, sigma=0.05),
+        # v2.GaussianNoise(mean=0.0, sigma=0.05),
         transforms.ToTensor(),
         transforms.Normalize(mean = [0.16666122], std = [0.17487395])
     ])
@@ -78,7 +78,7 @@ def get_data_loader(data_dir, batch_size):
         transforms.RandomRotation(degrees=15),
         transforms.ColorJitter(brightness=0.2, contrast=0.2),
         RandomGammaCorrection(gamma_range=(0.8, 1.2)),
-        v2.GaussianNoise(mean=0.0, sigma=0.05),
+        # v2.GaussianNoise(mean=0.0, sigma=0.05),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: (x > 0.5).float())
     ])
