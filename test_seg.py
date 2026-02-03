@@ -17,7 +17,7 @@ def generate_masks(test_loader, model, output_dir):
         for i, (inputs, _) in enumerate(test_loader):
             inputs = inputs.to(device)
             outputs = model(inputs)
-            predictions = (outputs > 0.5).float()  # Assuming threshold of 0.5 for binary prediction
+            predictions = (torch.sigmoid(outputs) > 0.5).float()  # Assuming threshold of 0.5 for binary prediction
 
             for j in range(inputs.size(0)):
                 pred_mask = predictions[j].cpu().numpy().squeeze()
