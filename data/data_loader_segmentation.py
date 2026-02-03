@@ -4,6 +4,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
 import random
+import torchvision.transforms.functional as F
 
 class SegmentationDataset(Dataset):
     def __init__(self, image_dir, mask_dir, transform=None):
@@ -46,6 +47,14 @@ class JointTransform:
 
         return image, mask
 
+class RandomGammaCorrection:
+    def __init__(self, gamma_range=(0.5, 2.0)):
+        self.gamma_range = gamma_range
+
+    def __call__(self, img):
+        gamma = random.uniform(*self.gamma_range)
+        return F.adjust_gamma(img, gamma)
+
 def get_data_loader(data_dir, batch_size):
     base_transform = transforms.Compose([
         transforms.RandomResizedCrop(size=256, scale=(0.5, 1.0)),
@@ -54,6 +63,7 @@ def get_data_loader(data_dir, batch_size):
         transforms.RandomVerticalFlip(p=1),
         transforms.RandomRotation(degrees=15),
         transforms.ColorJitter(brightness=0.2, contrast=0.2),
+        RandomGammaCorrection(gamma_range=(0.8, 1.2)),
         transforms.GaussianNoise(mean=0.0, sigma=0.05),
         transforms.ToTensor(),
         transforms.Normalize(mean = [0.16666122], std = [0.17487395])
