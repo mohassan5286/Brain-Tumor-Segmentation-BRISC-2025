@@ -76,6 +76,8 @@ def get_data_loader(data_dir, batch_size):
         transforms.RandomHorizontalFlip(p=1),
         transforms.RandomVerticalFlip(p=1),
         transforms.RandomRotation(degrees=15),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2),
+        RandomGammaCorrection(gamma_range=(0.8, 1.2)),
         v2.GaussianNoise(mean=0.0, sigma=0.05),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: (x > 0.5).float())
