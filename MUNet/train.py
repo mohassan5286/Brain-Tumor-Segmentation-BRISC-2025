@@ -114,7 +114,7 @@ def train_fn(model, train_loader, optimizer):
                 me_train_iou.append(train_iou)
             elif tumors_type[i] == 'pi':
                 pi_train_iou.append(train_iou)
-
+        break
     # Calculate weighted mIoU
     len_gl = len(gl_train_iou)
     len_me = len(me_train_iou)
@@ -155,7 +155,7 @@ def eval_fn(model, val_loader, epoch):
                     me_val_iou.append(val_iou)
                 elif tumors_type[i] == 'pi':
                     pi_val_iou.append(val_iou)
-    
+            break
     # Save validation output masks
     save_dir = 'validation_output_masks'
     os.makedirs(save_dir, exist_ok=True)
