@@ -6,11 +6,31 @@ from PIL import Image
 import random
 
 class SegmentationDataset(Dataset):
-    def __init__(self, image_dir, mask_dir, transform=None):
+    def __init__(self, image_dir, mask_dir, transform=None, target_tumor_type=None):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.transform = transform
-        self.images = os.listdir(image_dir)
+        self.images = sorted(os.listdir(image_dir))
+        
+
+        if target_tumor_type:
+            
+            mapping = {
+                'glioma': 'gl',
+                'meningioma': 'me',
+                'pituitary': 'pi'
+            }
+            target_code = mapping.get(target_tumor_type.lower())
+            
+            if target_code:
+                # Keep ONLY images that match the target code.
+                self.images = [
+                    img for img in self.images 
+                    if len(img.split('_')) > 3 and img.split('_')[3] == target_code
+                ]
+                print(f"[{target_tumor_type.upper()} DATASET] Filtered: Keeping {len(self.images)} pure {target_tumor_type} images.")
+            else:
+                raise ValueError(f"Unknown tumor type: {target_tumor_type}")
 
     def __len__(self):
         return len(self.images)
@@ -46,7 +66,7 @@ class JointTransform:
 
         return image, mask
 
-def get_data_loader(data_dir, batch_size):
+def get_data_loader(data_dir, batch_size, target_tumor_type=None):
     base_transform = transforms.Compose([
         transforms.Resize((256, 256)),
         transforms.RandomRotation(degrees=15),
@@ -79,13 +99,15 @@ def get_data_loader(data_dir, batch_size):
     train_dataset = SegmentationDataset(
         image_dir=os.path.join(data_dir, "train", "images"),
         mask_dir=os.path.join(data_dir, "train", "masks"),
-        transform=train_transform
+        transform=train_transform,
+        target_tumor_type=target_tumor_type 
     )
 
     test_dataset = SegmentationDataset(
         image_dir=os.path.join(data_dir, "test", "images"),
         mask_dir=os.path.join(data_dir, "test", "masks"),
-        transform=JointTransform(test_transform, test_mask_transform)
+        transform=JointTransform(test_transform, test_mask_transform),
+        target_tumor_type=target_tumor_type
     )
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
