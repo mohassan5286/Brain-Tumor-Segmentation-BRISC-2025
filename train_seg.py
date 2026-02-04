@@ -63,9 +63,16 @@ def train(model, train_loader, optimizer, criterion, iou_metric, device, tumor_t
 
         preds = (outputs > 0.5).float()
         
-        for i in range(inputs.size(0)):
-            train_iou = iou_metric(preds[i].unsqueeze(0).int(), targets[i].unsqueeze(0).int()).item()
-            ious.append(train_iou)
+        # --- VECTORIZED MACRO IOU (CORRECTED) ---
+        # 1. Sum Intersection & Union per image
+        intersection = (preds * targets).sum(dim=(1, 2, 3))
+        union = preds.sum(dim=(1, 2, 3)) + targets.sum(dim=(1, 2, 3)) - intersection
+        
+        # 2. Calculate IoU per image
+        batch_ious = (intersection + 1e-6) / (union + 1e-6)
+        
+        # 3. FIX: Extend the list with individual scores (move to CPU first) instead of append
+        all_ious.extend(batch_ious.detach().cpu().tolist())
 
     mean_iou = np.mean(ious) if len(ious) > 0 else 0
     train_loss = running_loss / len(train_loader)
@@ -88,9 +95,16 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch, tumor_type
 
             preds = (outputs > 0.5).float()
 
-            for i in range(inputs.size(0)):
-                val_iou = iou_metric(preds[i].unsqueeze(0).int(), targets[i].unsqueeze(0).int()).item()
-                ious.append(val_iou)
+            # --- VECTORIZED MACRO IOU (CORRECTED) ---
+            # 1. Sum Intersection & Union per image
+            intersection = (preds * targets).sum(dim=(1, 2, 3))
+            union = preds.sum(dim=(1, 2, 3)) + targets.sum(dim=(1, 2, 3)) - intersection
+            
+            # 2. Calculate IoU per image
+            batch_ious = (intersection + 1e-6) / (union + 1e-6)
+            
+            # 3. FIX: Extend the list with individual scores (move to CPU first) instead of append
+            all_ious.extend(batch_ious.detach().cpu().tolist())
     
     # Create a specific folder for this expert
     save_dir = f'validation_output_masks_{tumor_type_name}'
