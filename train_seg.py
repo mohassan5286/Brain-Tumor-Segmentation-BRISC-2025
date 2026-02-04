@@ -23,21 +23,25 @@ def dice_coefficient(pred, target, threshold=0.5):
     
     return 2.0 * intersection / union
 
+# FIX 1: Updated ComboLoss to calculate Dice PER IMAGE
 class ComboLoss(nn.Module):
     def __init__(self, weight=None, size_average=True):
         super(ComboLoss, self).__init__()
 
     def forward(self, inputs, targets, smooth=1):
-        #flatten label and prediction tensors
-        inputs = inputs.view(-1)
-        targets = targets.view(-1)
+        # Flatten pixels but KEEP batch dimension (Batch, H*W)
+        inputs = inputs.view(inputs.size(0), -1)
+        targets = targets.view(targets.size(0), -1)
         
-        intersection = (inputs * targets).sum()                            
-        dice_loss = 1 - (2.*intersection + smooth)/(inputs.sum() + targets.sum() + smooth)  
+        # Calculate Dice per image
+        intersection = (inputs * targets).sum(dim=1)
+        dice = (2. * intersection + smooth) / (inputs.sum(dim=1) + targets.sum(dim=1) + smooth)
+        dice_loss = 1 - dice.mean() # Average dice loss over batch
+        
+        # BCE is calculated per pixel then averaged, which is standard
         BCE = nn.functional.binary_cross_entropy(inputs, targets, reduction='mean')
-        combo_loss = BCE + dice_loss
         
-        return combo_loss
+        return BCE + dice_loss
         
 def count_parameters(model, trainable_only=False):
     if trainable_only:
@@ -178,7 +182,12 @@ def main(args):
             os.makedirs(args.logpath, exist_ok=True)
             # Save with a specific name for the expert
             save_path = os.path.join(args.logpath, f'best_model_{args.tumor_type}.pth')
-            torch.save(model.state_dict(), save_path)
+            # FIX 2: Correctly save weights regardless of DataParallel
+            if isinstance(model, nn.DataParallel):
+                torch.save(model.module.state_dict(), save_path)
+            else:
+                torch.save(model.state_dict(), save_path)
+                
             print(f'New Best {args.tumor_type} model saved with mean IoU: {best_val_mIoU:.4f}')
     
     print(f'Best {args.tumor_type} model saved with mean IoU: {best_val_mIoU:.4f} Location: {save_path}')
