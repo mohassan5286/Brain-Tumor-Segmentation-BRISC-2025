@@ -81,7 +81,7 @@ def main(config):
             depths=model_cfg['depths'],
             depths_decoder=model_cfg['depths_decoder'],
             drop_path_rate=model_cfg['drop_path_rate'],
-            load_ckpt_path=model_cfg['load_ckpt_path'],
+            # load_ckpt_path=model_cfg['load_ckpt_path'],
         )
         model.load_from()
         
