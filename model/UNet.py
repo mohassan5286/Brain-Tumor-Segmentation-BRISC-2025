@@ -18,14 +18,38 @@ class DoubleConv(nn.Module):
     def forward(self, x):
         return self.double_conv(x)
 
+
+class SpatialAttention(nn.Module):
+    def __init__(self, in_channels, out_channel):
+        super(SpatialAttention, self).__init__()
+        self.attention_score = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(in_channels, out_channel, kernel_size=1),
+            nn.Sigmoid()
+        )
+        self.input = nn.Sequential(
+            nn.Conv2d(in_channels, out_channel, kernel_size=1),
+            nn.MaxPool2d(kernel_size=2, stride=2)
+        )
+    
+    def forward(self, x):
+        attention_score = self.attention_score(x)
+        input = self.input(x)
+
+        return torch.mul(attention_score, input)
+
+
 class UNet(nn.Module):
     def __init__(self, in_channels, out_channels, feature_dims):
         super(UNet, self).__init__()
-        
+    
         self.encoder1 = DoubleConv(in_channels, feature_dims)
-        self.encoder2 = DoubleConv(feature_dims, feature_dims * 2)
+        self.encoder2 = DoubleConv(feature_dims * 2, feature_dims * 2)
         self.encoder3 = DoubleConv(feature_dims * 2, feature_dims * 4)
-        self.encoder4 = DoubleConv(feature_dims * 4, feature_dims * 8)
+        self.encoder4 = DoubleConv(feature_dims * 8, feature_dims * 8)
+
+        self.spatial_attention1 = SpatialAttention(feature_dims, feature_dims * 2)
+        self.spatial_attention2 = SpatialAttention(feature_dims * 4, feature_dims * 8)
 
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         
@@ -127,9 +151,11 @@ class UNet(nn.Module):
     def forward(self, x):
         # Encoder
         enc1 = self.encoder1(x)
-        enc2 = self.encoder2(self.pool(enc1))
+        attentioned_layer1 = self.spatial_attention1(enc1)
+        enc2 = self.encoder2(attentioned_layer1)
         enc3 = self.encoder3(self.pool(enc2))
-        enc4 = self.encoder4(self.pool(enc3))
+        attentioned_layer2 = self.spatial_attention2(enc3)
+        enc4 = self.encoder4(attentioned_layer2)
         
         # Bottleneck
         bottleneck = self.pool(enc4)
