@@ -12,7 +12,6 @@ def mIoU_loss(P, G, num_classes):
     Returns:
         mIoU loss value
     """
-    P = torch.sigmoid(P)
     intersection = torch.sum(P * G, dim=(2, 3))  # Calculate intersection (True Positives)
     union = torch.sum(P, dim=(2, 3)) + torch.sum(G, dim=(2, 3)) - intersection  # Calculate union (True Positives + False Positives + False Negatives)
     
@@ -32,7 +31,6 @@ def dice_loss(P, G):
     Returns:
         Dice loss value
     """
-    P = torch.sigmoid(P)
     smooth = 1e-6  # Smoothing constant to avoid division by zero
     intersection = torch.sum(P * G, dim=(2, 3))  # Calculate intersection (True Positives)
     
@@ -53,7 +51,6 @@ def boundary_loss(P, G, threshold=0.5):
     Returns:
         Boundary loss value
     """
-    P = torch.sigmoid(P)
     # Convert to binary masks
     P_bin = (P > threshold).float()
     G_bin = (G > threshold).float()
@@ -82,6 +79,7 @@ def total_loss(P, G, alpha=1.0, beta=1.0, gamma=1.0, num_classes=2):
     Returns:
         Total loss value
     """
+    P = torch.sigmoid(P)
     mIoU = mIoU_loss(P, G, num_classes)
     dice = dice_loss(P, G)
     boundary = boundary_loss(P, G)
