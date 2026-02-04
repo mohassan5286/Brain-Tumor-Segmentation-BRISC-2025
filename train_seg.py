@@ -140,7 +140,8 @@ def main(args):
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
     
     best_val_mIoU = float('-inf')
-
+    save_path = ""
+    
     # Train the model
     for epoch in range(args.niter):  # Train for the specified number of epochs
         print(f'\nEpoch {epoch+1}/{args.niter}')
