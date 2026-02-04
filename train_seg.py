@@ -164,7 +164,6 @@ def main(args):
             save_path = os.path.join(args.logpath, f'best_model_{args.tumor_type}.pth')
             torch.save(model.state_dict(), save_path)
             print(f'New Best {args.tumor_type} model saved with mean IoU: {best_val_mIoU:.4f}')
-
     
     print(f'Best {args.tumor_type} model saved with mean IoU: {best_val_mIoU:.4f} Location: {save_path}')
 
