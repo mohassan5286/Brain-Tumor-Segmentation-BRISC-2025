@@ -151,4 +151,4 @@ class MUNet(nn.Module):
         if logging:
             print(f"[MUNet] Final Output shape: {x.shape}")
             print(f">>> [MUNet] Forward Pass Complete\n")
-        return torch.sigmoid(x)
+        return x
