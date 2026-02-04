@@ -5,6 +5,8 @@ from datasets.dataset import NPY_datasets
 from tensorboardX import SummaryWriter
 from models.vmunet.vmunet import VMUNet
 
+from data_loader_segmentation import get_data_loader 
+
 from engine import *
 import os
 import sys
@@ -51,20 +53,21 @@ def main(config):
 
 
     print('#----------Preparing dataset----------#')
-    train_dataset = NPY_datasets(config.data_path, config, train=True)
-    train_loader = DataLoader(train_dataset,
-                                batch_size=config.batch_size, 
-                                shuffle=True,
-                                pin_memory=True,
-                                num_workers=config.num_workers)
-    val_dataset = NPY_datasets(config.data_path, config, train=False)
-    val_loader = DataLoader(val_dataset,
-                                batch_size=1,
-                                shuffle=False,
-                                pin_memory=True, 
-                                num_workers=config.num_workers,
-                                drop_last=True)
+    # train_dataset = NPY_datasets(config.data_path, config, train=True)
+    # train_loader = DataLoader(train_dataset,
+    #                             batch_size=config.batch_size, 
+    #                             shuffle=True,
+    #                             pin_memory=True,
+    #                             num_workers=config.num_workers)
+    # val_dataset = NPY_datasets(config.data_path, config, train=False)
+    # val_loader = DataLoader(val_dataset,
+    #                             batch_size=1,
+    #                             shuffle=False,
+    #                             pin_memory=True, 
+    #                             num_workers=config.num_workers,
+    #                             drop_last=True)
 
+    train_loader, val_loader = get_data_loader(config.data_path, config.batch_size)
 
 
 

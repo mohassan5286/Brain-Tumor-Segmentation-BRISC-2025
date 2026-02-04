@@ -24,6 +24,8 @@ class setting_config:
         data_path = './data/isic2018/'
     elif datasets == 'isic17':
         data_path = './data/isic2017/'
+    elif datasets == 'brisc2025':
+        data_path = '/kaggle/input/brisc2025/brisc2025/segmentation_task'
     else:
         raise Exception('datasets in not right!')
 
@@ -43,7 +45,7 @@ class setting_config:
     amp = False
     gpu_id = '0'
     batch_size = 32
-    epochs = 300
+    epochs = 1
 
     work_dir = 'results/' + network + '_' + datasets + '_' + datetime.now().strftime('%A_%d_%B_%Y_%Hh_%Mm_%Ss') + '/'
 
