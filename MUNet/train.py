@@ -201,12 +201,12 @@ def train():
         # 训练
         train_loss = train_fn(model, train_loader, optimizer)
         # if logging:
-        print(f"Train Loss: {train_loss:.4f}")
+        print(f"Train Loss: {train_loss}")
 
         # 验证
         val_loss = eval_fn(model, val_loader, epoch)
         # if logging:
-        print(f"Validation Loss: {val_loss:.4f}")
+        print(f"Validation Loss: {val_loss}")
 
         # 学习率调度
         scheduler.step()
