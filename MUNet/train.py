@@ -199,12 +199,12 @@ def train():
         print(f"Epoch [{epoch+1}/{EPOCHS}]")
 
         # 训练
-        train_loss = train_fn(train_loader, model, optimizer)
+        train_loss = train_fn(model, train_loader, optimizer)
         # if logging:
         print(f"Train Loss: {train_loss:.4f}")
 
         # 验证
-        val_loss = eval_fn(val_loader, model, epoch)
+        val_loss = eval_fn(model, val_loader, epoch)
         # if logging:
         print(f"Validation Loss: {val_loss:.4f}")
 
