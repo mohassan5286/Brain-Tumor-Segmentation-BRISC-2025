@@ -102,7 +102,7 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
     save_dir = 'validation_output_masks'
     os.makedirs(save_dir, exist_ok=True)
     for i, output in enumerate(val_outputs):
-        save_image(output, os.path.join(save_dir, f'epoch_{epoch}_batch_{i}_output.png'))
+        save_image((output > 0.5).float(), os.path.join(save_dir, f'epoch_{epoch}_batch_{i}_output.png'))
 
     # Calculate weighted mIoU
     len_gl = len(gl_val_iou)
