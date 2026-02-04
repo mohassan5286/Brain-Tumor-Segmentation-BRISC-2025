@@ -85,7 +85,7 @@ def total_loss(P, G, alpha=1.0, beta=1.0, num_classes=2):
         Total loss value
     """
     # mIoU = mIoU_loss(P, G, num_classes)
-    dice = dice_loss((torch.sigmoid(P) > 0.5).float(), G)
+    dice = dice_loss(torch.sigmoid(P), G)
     # bce = bce_loss(P, G)
     print(P.shape)
     print(G.shape)
