@@ -131,6 +131,8 @@ def train_fn(model, train_loader, optimizer):
     print(f'\n[TRAIN] Loss: {train_loss:.4f}')
     print(f'GL: {gl_miou:.4f} ({len_gl}) | ME: {me_miou:.4f} ({len_me}) | PI: {pi_miou:.4f} ({len_pi}) | Weighted: {weighted_miou:.4f}')
 
+    return train_loss
+
 def eval_fn(model, val_loader, epoch):
     model.eval()
     running_loss = 0.0
