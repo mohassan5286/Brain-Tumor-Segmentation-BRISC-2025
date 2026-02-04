@@ -10,7 +10,7 @@ from dataset import BRISC2025Dataset  # 假设有一个自定义数据集模块
 import os
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from data.data_loader_segmentation import get_data_loader
+from data_loader_segmentation import get_data_loader
 import numpy as np
 from torchvision.utils import save_image
 
