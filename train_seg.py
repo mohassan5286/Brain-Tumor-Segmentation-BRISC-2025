@@ -23,26 +23,22 @@ def dice_coefficient(pred, target, threshold=0.5):
     
     return 2.0 * intersection / union
 
-# FIX 1: Updated ComboLoss to calculate Dice PER IMAGE
 class ComboLoss(nn.Module):
     def __init__(self, weight=None, size_average=True):
         super(ComboLoss, self).__init__()
 
     def forward(self, inputs, targets, smooth=1):
-        # Flatten pixels but KEEP batch dimension (Batch, H*W)
-        inputs = inputs.view(inputs.size(0), -1)
-        targets = targets.view(targets.size(0), -1)
+        #flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
         
-        # Calculate Dice per image
-        intersection = (inputs * targets).sum(dim=1)
-        dice = (2. * intersection + smooth) / (inputs.sum(dim=1) + targets.sum(dim=1) + smooth)
-        dice_loss = 1 - dice.mean() # Average dice loss over batch
-        
-        # BCE is calculated per pixel then averaged, which is standard
+        intersection = (inputs * targets).sum()                            
+        dice_loss = 1 - (2.*intersection + smooth)/(inputs.sum() + targets.sum() + smooth)  
         BCE = nn.functional.binary_cross_entropy(inputs, targets, reduction='mean')
+        combo_loss = BCE + dice_loss
         
-        return BCE + dice_loss
-        
+        return combo_loss
+
 def count_parameters(model, trainable_only=False):
     if trainable_only:
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
