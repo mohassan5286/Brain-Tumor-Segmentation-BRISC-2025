@@ -157,7 +157,7 @@ def main(args):
     criterion = ComboLoss()
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     iou_metric = BinaryJaccardIndex().to(device)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
+    scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=5)
     
     best_val_mIoU = float('-inf')
     save_path = ""
@@ -170,7 +170,7 @@ def main(args):
         train(model, train_loader, optimizer, criterion, iou_metric, device, args.tumor_type)
         val_loss, mean_iou = validate(model, val_loader, criterion, iou_metric, device, epoch, args.tumor_type)
         
-        scheduler.step(val_loss)
+        scheduler.step(mean_iou)
         
         end_time = time.time()
         epoch_time = end_time - start_time
