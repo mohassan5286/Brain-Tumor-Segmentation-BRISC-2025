@@ -19,7 +19,7 @@ class setting_config:
         'load_ckpt_path': './pre_trained_weights/vmamba_small_e238_ema.pth',
     }
 
-    datasets = 'isic18' 
+    datasets = 'brisc2025' 
     if datasets == 'isic18':
         data_path = './data/isic2018/'
     elif datasets == 'isic17':
