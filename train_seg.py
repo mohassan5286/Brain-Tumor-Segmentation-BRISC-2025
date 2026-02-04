@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchmetrics.classification import BinaryJaccardIndex
-from model.UNet import UNet  # Ensure UNet class is defined in model/unet.py
+from model.UNet import UNet  
 from data.data_loader_segmentation import get_data_loader
 from torchvision.utils import save_image
 
@@ -28,7 +28,6 @@ class ComboLoss(nn.Module):
         super(ComboLoss, self).__init__()
 
     def forward(self, inputs, targets, smooth=1):
-        #flatten label and prediction tensors
         inputs = inputs.view(-1)
         targets = targets.view(-1)
         
@@ -72,7 +71,6 @@ def train(model, train_loader, optimizer, criterion, iou_metric, device):
             elif tumors_type[i] == 'pi':
                 pi_train_iou.append(train_iou)
 
-    # Calculate weighted mIoU
     len_gl = len(gl_train_iou)
     len_me = len(me_train_iou)
     len_pi = len(pi_train_iou)
@@ -91,14 +89,13 @@ def train(model, train_loader, optimizer, criterion, iou_metric, device):
 def validate(model, val_loader, criterion, iou_metric, device, epoch):
     model.eval()
     running_loss = 0.0
-    val_outputs = []
     gl_val_iou, me_val_iou, pi_val_iou = [], [], []
 
     with torch.no_grad():
         for inputs, targets, tumors_type in val_loader:
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = model(inputs)
-            val_outputs.append(outputs)
+            
             loss = criterion(outputs, targets)
             running_loss += loss.item()
 
@@ -113,13 +110,6 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
                 elif tumors_type[i] == 'pi':
                     pi_val_iou.append(val_iou)
     
-    # Save validation output masks
-    save_dir = 'validation_output_masks'
-    os.makedirs(save_dir, exist_ok=True)
-    for i, output in enumerate(val_outputs):
-        save_image(output, os.path.join(save_dir, f'epoch_{epoch}_batch_{i}_output.png'))
-
-    # Calculate weighted mIoU
     len_gl = len(gl_val_iou)
     len_me = len(me_val_iou)
     len_pi = len(pi_val_iou)
@@ -135,8 +125,7 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
     print(f'\n[VAL] Loss: {val_loss:.4f}')
     print(f'GL: {gl_miou:.4f} ({len_gl}) | ME: {me_miou:.4f} ({len_me}) | PI: {pi_miou:.4f} ({len_pi}) | Weighted: {weighted_miou:.4f}')
 
-    return val_loss
-
+    return val_loss, weighted_miou
 
 def main(args):
     print(":=========== Brain Tumor Segmentation ===========")
@@ -147,38 +136,33 @@ def main(args):
     print(f"|                niter: {args.niter}")
     print(":==========================================================")
 
-    # Get the data loaders for the Brisc 2025 dataset
     train_loader, val_loader = get_data_loader(args.data_dir, args.bsz)
 
-    # Instantiate the UNet model
-    model = UNet(in_channels=1, out_channels=1, feature_dims=64)  # UNet for binary segmentation
+    model = UNet(in_channels=1, out_channels=1, feature_dims=64) 
 
-    # Print the number of parameters
     total_params = count_parameters(model)
     trainable_params = count_parameters(model, trainable_only=True)
     print(f"\nTotal # param.: {total_params}")
     print(f"Learnable # param.: {trainable_params}")
 
-    # Move the model to the GPU if available
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model = torch.nn.DataParallel(model, device_ids = [0, 1])
     
-    # Define loss function and optimizer
-    criterion = ComboLoss() # Binary cross-entropy loss
+    criterion = ComboLoss()
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     iou_metric = BinaryJaccardIndex().to(device)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
     
-    best_val_loss = float('inf')
+    best_weighted_miou = 0.0
 
     # Train the model
-    for epoch in range(args.niter):  # Train for the specified number of epochs
+    for epoch in range(args.niter): 
         print(f'\nEpoch {epoch+1}/{args.niter}')
         start_time = time.time()
         
         train(model, train_loader, optimizer, criterion, iou_metric, device)
-        val_loss = validate(model, val_loader, criterion, iou_metric, device, epoch)
+        val_loss, weighted_miou = validate(model, val_loader, criterion, iou_metric, device, epoch)
         
         scheduler.step(val_loss)
         
@@ -186,13 +170,67 @@ def main(args):
         epoch_time = end_time - start_time
         print(f'\nEpoch {epoch+1} completed in {epoch_time:.2f} seconds\n')
         
-        # Save the best model
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
+        # Save the best model based on Weighted Mean IOU
+        if weighted_miou > best_weighted_miou:
+            best_weighted_miou = weighted_miou
             os.makedirs(args.logpath, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(args.logpath, 'best_model.pth'))
-            print(f'Best model saved with loss: {best_val_loss:.4f}')
+            print(f'Best model saved with Weighted IOU: {best_weighted_miou:.4f}')
 
+    # --- Post Training: Filter and Save Images based on Thresholds ---
+    print("\nTraining Finished. Starting post-training evaluation and saving...")
+    
+    # Load the best model
+    best_model_path = os.path.join(args.logpath, 'best_model.pth')
+    model.load_state_dict(torch.load(best_model_path))
+    model.eval()
+
+    # Create directories
+    os.makedirs('glioma', exist_ok=True)
+    os.makedirs('meningioma', exist_ok=True)
+    os.makedirs('pituitary', exist_ok=True)
+
+    with torch.no_grad():
+        batch_idx = 0
+        for inputs, targets, tumors_type in val_loader:
+            inputs = inputs.to(device)
+            targets = targets.to(device)
+            outputs = model(inputs)
+            preds = (outputs > 0.5).float()
+
+            for i in range(inputs.size(0)):
+                iou = iou_metric(preds[i].unsqueeze(0).int(), targets[i].unsqueeze(0).int()).item()
+                t_type = tumors_type[i]
+                
+                should_save = False
+                save_folder = ""
+                
+                # Check thresholds
+                if t_type == 'gl' and iou < 0.6:
+                    should_save = True
+                    save_folder = 'glioma'
+                elif t_type == 'me' and iou < 0.8:
+                    should_save = True
+                    save_folder = 'meningioma'
+                elif t_type == 'pi' and iou < 0.7:
+                    should_save = True
+                    save_folder = 'pituitary'
+                
+                if should_save:
+                    filename_base = f"{iou:.4f}_batch{batch_idx}_idx{i}"
+                    
+                    # Save Image
+                    save_image(inputs[i], os.path.join(save_folder, f"{filename_base}_image.png"))
+                    
+                    # Save Predicted Mask
+                    save_image(preds[i], os.path.join(save_folder, f"{filename_base}_mask.png"))
+
+                    # Save Target (Ground Truth) Mask
+                    save_image(targets[i], os.path.join(save_folder, f"{filename_base}_target.png"))
+            
+            batch_idx += 1
+    
+    print("Post-training evaluation and saving completed.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train UNet model on Pneumonia chest X-ray segmentation dataset")
