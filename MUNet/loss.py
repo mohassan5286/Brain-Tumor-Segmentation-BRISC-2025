@@ -79,7 +79,6 @@ def total_loss(P, G, alpha=1.0, beta=1.0, gamma=1.0, num_classes=2):
     Returns:
         Total loss value
     """
-    P = torch.sigmoid(P)
     mIoU = mIoU_loss(P, G, num_classes)
     dice = dice_loss(P, G)
     boundary = boundary_loss(P, G)

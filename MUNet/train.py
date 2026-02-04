@@ -147,7 +147,7 @@ def eval_fn(model, val_loader, epoch):
             loss = compute_loss(outputs, targets)
             running_loss += loss.item()
 
-            preds = (torch.sigmoid(outputs) > 0.5).float()
+            preds = (outputs > 0.5).float()
 
             for i in range(inputs.size(0)):
                 val_iou = iou_metric(preds[i].unsqueeze(0).int(), targets[i].unsqueeze(0).int()).item()
