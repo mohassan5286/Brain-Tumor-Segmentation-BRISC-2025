@@ -72,7 +72,7 @@ def train(model, train_loader, optimizer, criterion, iou_metric, device, tumor_t
         batch_ious = (intersection + 1e-6) / (union + 1e-6)
         
         # 3. FIX: Extend the list with individual scores (move to CPU first) instead of append
-        all_ious.extend(batch_ious.detach().cpu().tolist())
+        ious.extend(batch_ious.detach().cpu().tolist())
 
     mean_iou = np.mean(ious) if len(ious) > 0 else 0
     train_loss = running_loss / len(train_loader)
@@ -104,7 +104,7 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch, tumor_type
             batch_ious = (intersection + 1e-6) / (union + 1e-6)
             
             # 3. FIX: Extend the list with individual scores (move to CPU first) instead of append
-            all_ious.extend(batch_ious.detach().cpu().tolist())
+            ious.extend(batch_ious.detach().cpu().tolist())
     
     # Create a specific folder for this expert
     save_dir = f'validation_output_masks_{tumor_type_name}'
@@ -145,8 +145,10 @@ def main(args):
     # Move the model to the GPU if available
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.to(device)
-    model = torch.nn.DataParallel(model, device_ids = [0, 1])
-    
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs")
+        model = torch.nn.DataParallel(model)
+        
     # Define loss function and optimizer
     criterion = ComboLoss()
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
