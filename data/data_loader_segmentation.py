@@ -66,7 +66,7 @@ class JointTransform:
 
         return image, mask
 
-def get_data_loader(data_dir, batch_size):
+def get_data_loader(data_dir, batch_size, target_tumor_type=None):
     base_transform = transforms.Compose([
         transforms.Resize((256, 256)),
         transforms.ToTensor(),
