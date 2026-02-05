@@ -5,9 +5,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchmetrics.classification import BinaryJaccardIndex
-from model.UNet import UNet  # Ensure UNet class is defined in model/unet.py
+from model.UNet import UNet  
 from data.data_loader_segmentation import get_data_loader
 from torchvision.utils import save_image
 
@@ -57,7 +57,6 @@ def train(model, train_loader, optimizer, criterion, iou_metric, device):
             elif tumors_type[i] == 'pi':
                 pi_train_iou.append(train_iou)
 
-    # Calculate weighted mIoU
     len_gl = len(gl_train_iou)
     len_me = len(me_train_iou)
     len_pi = len(pi_train_iou)
@@ -98,13 +97,11 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
                 elif tumors_type[i] == 'pi':
                     pi_val_iou.append(val_iou)
     
-    # Save validation output masks
     save_dir = 'validation_output_masks'
     os.makedirs(save_dir, exist_ok=True)
     for i, output in enumerate(val_outputs):
         save_image((output > 0.5).float(), os.path.join(save_dir, f'epoch_{epoch}_batch_{i}_output.png'))
 
-    # Calculate weighted mIoU
     len_gl = len(gl_val_iou)
     len_me = len(me_val_iou)
     len_pi = len(pi_val_iou)
@@ -120,7 +117,7 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
     print(f'\n[VAL] Loss: {val_loss:.4f}')
     print(f'GL: {gl_miou:.4f} ({len_gl}) | ME: {me_miou:.4f} ({len_me}) | PI: {pi_miou:.4f} ({len_pi}) | Weighted: {weighted_miou:.4f}')
 
-    return val_loss
+    return val_loss, weighted_miou
 
 
 def main(args):
@@ -132,52 +129,57 @@ def main(args):
     print(f"|                niter: {args.niter}")
     print(":==========================================================")
 
-    # Get the data loaders for the Brisc 2025 dataset
     train_loader, val_loader = get_data_loader(args.data_dir, args.bsz)
 
-    # Instantiate the UNet model
-    model = UNet(in_channels=1, out_channels=1, feature_dims=64)  # UNet for binary segmentation
+    model = UNet(in_channels=1, out_channels=1, feature_dims=64) 
 
-    # Print the number of parameters
     total_params = count_parameters(model)
     trainable_params = count_parameters(model, trainable_only=True)
     print(f"\nTotal # param.: {total_params}")
     print(f"Learnable # param.: {trainable_params}")
 
-    # Move the model to the GPU if available
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model = torch.nn.DataParallel(model, device_ids = [0, 1])
     
-    # Define loss function and optimizer
-    criterion = nn.BCELoss()  # Binary cross-entropy loss
-    optimizer = optim.AdamW(model.parameters(), lr=args.lr)
+    criterion = nn.BCELoss()  
+    optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay = 1e-3)
     iou_metric = BinaryJaccardIndex().to(device)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
     
-    best_val_loss = float('inf')
+    scheduler = CosineAnnealingLR(optimizer, T_max=args.niter, eta_min=1e-6)
+    
+    best_weighted_miou = float('-inf')
+    
+    patience = 7
+    trigger_times = 0
 
-    # Train the model
-    for epoch in range(args.niter):  # Train for the specified number of epochs
+    for epoch in range(args.niter): 
         print(f'\nEpoch {epoch+1}/{args.niter}')
         start_time = time.time()
         
         train(model, train_loader, optimizer, criterion, iou_metric, device)
-        val_loss = validate(model, val_loader, criterion, iou_metric, device, epoch)
+        val_loss, weighted_miou = validate(model, val_loader, criterion, iou_metric, device, epoch)
         
-        scheduler.step(val_loss)
+        scheduler.step()
         
         end_time = time.time()
         epoch_time = end_time - start_time
         print(f'\nEpoch {epoch+1} completed in {epoch_time:.2f} seconds\n')
         
-        # Save the best model
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
+        if weighted_miou > best_weighted_miou:
+            best_weighted_miou = weighted_miou
             os.makedirs(args.logpath, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(args.logpath, 'best_model.pth'))
-            print(f'Best model saved with loss: {best_val_loss:.4f}')
-
+            print(f'Best model saved with weighted_miou: {best_weighted_miou:.4f}')
+            trigger_times = 0
+        else:
+            trigger_times += 1
+            print(f'Early stopping counter: {trigger_times} out of {patience}')
+            if trigger_times >= patience:
+                print('Early stopping triggered.')
+                break
+    
+    print(f'Best model saved with weighted miou: {best_weighted_miou:.4f}')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train UNet on brain tumor segmentation using BRISC 2025 dataset")
