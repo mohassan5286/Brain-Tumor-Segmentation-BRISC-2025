@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchmetrics.classification import BinaryJaccardIndex
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from model.UNet import UNet  # Ensure UNet class is defined in model/unet.py
 from data.data_loader_segmentation import get_data_loader
 from torchvision.utils import save_image
@@ -155,13 +156,15 @@ def main(args):
         
     # Define loss function and optimizer
     criterion = ComboLoss()
-    optimizer = optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay = 1e-3)
     iou_metric = BinaryJaccardIndex().to(device)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
+    scheduler = CosineAnnealingLR(optimizer, T_max=args.niter, eta_min=1e-6)
     
     best_val_mIoU = float('-inf')
     save_path = ""
-    
+
+    patience = 7
+    trigger_times = 0
     # Train the model
     for epoch in range(args.niter):  # Train for the specified number of epochs
         print(f'\nEpoch {epoch+1}/{args.niter}')
@@ -170,7 +173,7 @@ def main(args):
         train(model, train_loader, optimizer, criterion, iou_metric, device, args.tumor_type)
         val_loss, mean_iou = validate(model, val_loader, criterion, iou_metric, device, epoch, args.tumor_type)
         
-        scheduler.step(val_loss)
+        scheduler.step()
         
         end_time = time.time()
         epoch_time = end_time - start_time
@@ -189,6 +192,13 @@ def main(args):
                 torch.save(model.state_dict(), save_path)
                 
             print(f'New Best {args.tumor_type} model saved with mean IoU: {best_val_mIoU:.4f}')
+            trigger_times = 0
+        else:
+            trigger_times += 1
+            print(f'Early stopping counter: {trigger_times} out of {patience}')
+            if trigger_times >= patience:
+                print('Early stopping triggered.')
+                break
     
     print(f'Best {args.tumor_type} model saved with mean IoU: {best_val_mIoU:.4f} Location: {save_path}')
 
