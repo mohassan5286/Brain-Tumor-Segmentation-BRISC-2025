@@ -6,31 +6,11 @@ from PIL import Image
 import random
 
 class SegmentationDataset(Dataset):
-    def __init__(self, image_dir, mask_dir, transform=None, target_tumor_type=None):
+    def __init__(self, image_dir, mask_dir, transform=None):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.transform = transform
-        self.images = sorted(os.listdir(image_dir))
-        
-
-        if target_tumor_type:
-            
-            mapping = {
-                'glioma': 'gl',
-                'meningioma': 'me',
-                'pituitary': 'pi'
-            }
-            target_code = mapping.get(target_tumor_type.lower())
-            
-            if target_code:
-                # Keep ONLY images that match the target code.
-                self.images = [
-                    img for img in self.images 
-                    if len(img.split('_')) > 3 and img.split('_')[3] == target_code
-                ]
-                print(f"[{target_tumor_type.upper()} DATASET] Filtered: Keeping {len(self.images)} pure {target_tumor_type} images.")
-            else:
-                raise ValueError(f"Unknown tumor type: {target_tumor_type}")
+        self.images = os.listdir(image_dir)
 
     def __len__(self):
         return len(self.images)
@@ -66,18 +46,15 @@ class JointTransform:
 
         return image, mask
 
-def get_data_loader(data_dir, batch_size, target_tumor_type=None):
+def get_data_loader(data_dir, batch_size):
     base_transform = transforms.Compose([
         transforms.Resize((256, 256)),
-        transforms.RandomRotation(degrees=15),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2),
         transforms.ToTensor(),
         transforms.Normalize(mean = [0.16666122], std = [0.17487395])
     ])
 
     mask_transform = transforms.Compose([
         transforms.Resize((256, 256), interpolation = transforms.InterpolationMode.NEAREST),
-        transforms.RandomRotation(degrees=15),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: (x > 0.5).float())
     ])
@@ -99,15 +76,13 @@ def get_data_loader(data_dir, batch_size, target_tumor_type=None):
     train_dataset = SegmentationDataset(
         image_dir=os.path.join(data_dir, "train", "images"),
         mask_dir=os.path.join(data_dir, "train", "masks"),
-        transform=train_transform,
-        target_tumor_type=target_tumor_type 
+        transform=train_transform
     )
 
     test_dataset = SegmentationDataset(
         image_dir=os.path.join(data_dir, "test", "images"),
         mask_dir=os.path.join(data_dir, "test", "masks"),
-        transform=JointTransform(test_transform, test_mask_transform),
-        target_tumor_type=target_tumor_type
+        transform=JointTransform(test_transform, test_mask_transform)
     )
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
