@@ -138,9 +138,12 @@ def main(args):
     print(f"\nTotal # param.: {total_params}")
     print(f"Learnable # param.: {trainable_params}")
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
-    model = torch.nn.DataParallel(model, device_ids = [0, 1])
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs!")
+        ids = list(range(torch.cuda.device_count())) 
+        model = torch.nn.DataParallel(model, device_ids=ids)
     
     criterion = nn.BCELoss()  
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay = 1e-3)
