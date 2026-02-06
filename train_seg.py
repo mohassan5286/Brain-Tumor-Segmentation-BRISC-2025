@@ -193,12 +193,12 @@ def main(args):
                 
             print(f'New Best {args.tumor_type} model saved with mean IoU: {best_val_mIoU:.4f}')
             trigger_times = 0
-        else:
-            trigger_times += 1
-            print(f'Early stopping counter: {trigger_times} out of {patience}')
-            if trigger_times >= patience:
-                print('Early stopping triggered.')
-                break
+        # else:
+        #     trigger_times += 1
+        #     print(f'Early stopping counter: {trigger_times} out of {patience}')
+        #     if trigger_times >= patience:
+        #         print('Early stopping triggered.')
+        #         break
     
     print(f'Best {args.tumor_type} model saved with mean IoU: {best_val_mIoU:.4f} Location: {save_path}')
 
