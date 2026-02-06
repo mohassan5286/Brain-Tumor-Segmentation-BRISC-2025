@@ -23,6 +23,22 @@ def dice_coefficient(pred, target, threshold=0.5):
     
     return 2.0 * intersection / union
 
+class ComboLoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(ComboLoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1):
+        #flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+        
+        intersection = (inputs * targets).sum()                            
+        dice_loss = 1 - (2.*intersection + smooth)/(inputs.sum() + targets.sum() + smooth)  
+        BCE = nn.functional.binary_cross_entropy(inputs, targets, reduction='mean')
+        combo_loss = BCE + dice_loss
+        
+        return combo_loss
+
 
 def count_parameters(model, trainable_only=False):
     if trainable_only:
@@ -139,7 +155,7 @@ def main(args):
         ids = list(range(torch.cuda.device_count())) 
         model = torch.nn.DataParallel(model, device_ids=ids)
     
-    criterion = nn.BCELoss()  
+    criterion = ComboLoss()  
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay = 1e-3)
     iou_metric = BinaryJaccardIndex().to(device)
     
