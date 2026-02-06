@@ -1,9 +1,26 @@
 import os
 import torch
+import numpy as np
+import cv2
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
 import random
+
+class CLAHE:
+    def __init__(self, clip_limit=2.0, tile_grid_size=(8, 8)):
+        self.clip_limit = clip_limit
+        self.tile_grid_size = tile_grid_size
+
+    def __call__(self, img):
+        img_np = np.array(img)
+        if len(img_np.shape) > 2:
+            img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
+            
+        clahe = cv2.createCLAHE(clipLimit=self.clip_limit, tileGridSize=self.tile_grid_size)
+        img_clahe = clahe.apply(img_np)
+        
+        return Image.fromarray(img_clahe)
 
 class SegmentationDataset(Dataset):
     def __init__(self, image_dir, mask_dir, transform=None):
@@ -49,12 +66,13 @@ class JointTransform:
 def get_data_loader(data_dir, batch_size):
     base_transform = transforms.Compose([
         transforms.Resize((256, 256)),
+        CLAHE(clip_limit=2.0, tile_grid_size=(8, 8)),
         transforms.ToTensor(),
-        transforms.Normalize(mean = [0.16666122], std = [0.17487395])
+        transforms.Normalize(mean=[0.2535352408885956], std=[0.23833103477954865])
     ])
 
     mask_transform = transforms.Compose([
-        transforms.Resize((256, 256), interpolation = transforms.InterpolationMode.NEAREST),
+        transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: (x > 0.5).float())
     ])
@@ -63,12 +81,13 @@ def get_data_loader(data_dir, batch_size):
 
     test_transform = transforms.Compose([
         transforms.Resize((256, 256)),
+        CLAHE(clip_limit=2.0, tile_grid_size=(8, 8)),
         transforms.ToTensor(),
-        transforms.Normalize(mean = [0.16666122], std = [0.17487395])
+        transforms.Normalize(mean=[0.2535352408885956], std=[0.23833103477954865])
     ])
 
     test_mask_transform = transforms.Compose([
-        transforms.Resize((256, 256), interpolation = transforms.InterpolationMode.NEAREST),
+        transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: (x > 0.5).float())
     ])
