@@ -223,7 +223,7 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
     print(f'\n[VAL] Loss: {val_loss:.4f}')
     print(f'GL: {gl_miou:.4f} ({len_gl}) | ME: {me_miou:.4f} ({len_me}) | PI: {pi_miou:.4f} ({len_pi}) | Weighted: {weighted_miou:.4f}')
 
-    return val_loss
+    return val_loss, weighted_miou
 
 
 def main(args):
@@ -278,7 +278,7 @@ def main(args):
     iou_metric = BinaryJaccardIndex().to(device)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
     
-    best_val_loss = float('inf')
+    best_weighted_miou = float('-inf')
 
     # Train the model
     for epoch in range(args.niter):  # Train for the specified number of epochs
@@ -286,7 +286,7 @@ def main(args):
         start_time = time.time()
         
         train(model, train_loader, optimizer, criterion, iou_metric, device)
-        val_loss = validate(model, val_loader, criterion, iou_metric, device, epoch)
+        val_loss, weighted_miou = validate(model, val_loader, criterion, iou_metric, device, epoch)
         
         scheduler.step(val_loss)
         
@@ -295,14 +295,14 @@ def main(args):
         print(f'\nEpoch {epoch+1} completed in {epoch_time:.2f} seconds\n')
         
         # Save the best model
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
+        if weighted_miou > best_weighted_miou:
+            best_weighted_miou = weighted_miou
             os.makedirs(args.logpath, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(args.logpath, 'best_model.pth'))
-            print(f'Best model saved with loss: {best_val_loss:.4f}')
+            print(f'Best model saved with weighted miou: {best_val_loss:.4f}')
             
     print(f'\n Training Complete!')
-    print(f'Best Validation Loss: {best_val_loss:.4f}')
+    print(f'Best Validation Weighted mIoU: {best_weighted_miou:.4f}')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train UNet on brain tumor segmentation using BRISC 2025 dataset")
