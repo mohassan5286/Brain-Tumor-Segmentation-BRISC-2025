@@ -43,11 +43,10 @@ def count_parameters(model, trainable_only=False):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
     else:
         return sum(p.numel() for p in model.parameters())
-
-def train(model, train_loader, optimizer, criterion, iou_metric, device):
+def train(model, train_loader, optimizer, criterion, iou_metric, device, tumor_type_name):
     model.train()
     running_loss = 0.0
-    gl_train_iou, me_train_iou, pi_train_iou = [], [], []
+    ious = []
 
     for inputs, targets, tumors_type in train_loader:
         inputs, targets = inputs.to(device), targets.to(device)
@@ -62,35 +61,27 @@ def train(model, train_loader, optimizer, criterion, iou_metric, device):
 
         preds = (outputs > 0.5).float()
         
-        for i in range(inputs.size(0)):
-            train_iou = iou_metric(preds[i].unsqueeze(0).int(), targets[i].unsqueeze(0).int()).item()
-            if tumors_type[i] == 'gl':
-                gl_train_iou.append(train_iou)
-            elif tumors_type[i] == 'me':
-                me_train_iou.append(train_iou)
-            elif tumors_type[i] == 'pi':
-                pi_train_iou.append(train_iou)
+        # --- VECTORIZED MACRO IOU (CORRECTED) ---
+        # 1. Sum Intersection & Union per image
+        intersection = (preds * targets).sum(dim=(1, 2, 3))
+        union = preds.sum(dim=(1, 2, 3)) + targets.sum(dim=(1, 2, 3)) - intersection
+        
+        # 2. Calculate IoU per image
+        batch_ious = (intersection + 1e-6) / (union + 1e-6)
+        
+        # 3. FIX: Extend the list with individual scores (move to CPU first) instead of append
+        ious.extend(batch_ious.detach().cpu().tolist())
 
-    len_gl = len(gl_train_iou)
-    len_me = len(me_train_iou)
-    len_pi = len(pi_train_iou)
-    total_samples = len_gl + len_me + len_pi
-    
-    gl_miou = np.mean(gl_train_iou) if len_gl > 0 else 0
-    me_miou = np.mean(me_train_iou) if len_me > 0 else 0
-    pi_miou = np.mean(pi_train_iou) if len_pi > 0 else 0
-    weighted_miou = (gl_miou * len_gl + me_miou * len_me + pi_miou * len_pi) / total_samples if total_samples > 0 else 0
-
+    mean_iou = np.mean(ious) if len(ious) > 0 else 0
     train_loss = running_loss / len(train_loader)
 
-    print(f'\n[TRAIN] Loss: {train_loss:.4f}')
-    print(f'GL: {gl_miou:.4f} ({len_gl}) | ME: {me_miou:.4f} ({len_me}) | PI: {pi_miou:.4f} ({len_pi}) | Weighted: {weighted_miou:.4f}')
-
-def validate(model, val_loader, criterion, iou_metric, device, epoch):
+    print(f'\n[TRAIN] Loss: {train_loss:.4f} | {tumor_type_name.upper()} mIoU: {mean_iou:.4f}')
+    
+def validate(model, val_loader, criterion, iou_metric, device, epoch, tumor_type_name):
     model.eval()
     running_loss = 0.0
     val_outputs = []
-    gl_val_iou, me_val_iou, pi_val_iou = [], [], []
+    ious = []
 
     with torch.no_grad():
         for inputs, targets, tumors_type in val_loader:
@@ -102,36 +93,30 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
 
             preds = (outputs > 0.5).float()
 
-            for i in range(inputs.size(0)):
-                val_iou = iou_metric(preds[i].unsqueeze(0).int(), targets[i].unsqueeze(0).int()).item()
-                if tumors_type[i] == 'gl':
-                    gl_val_iou.append(val_iou)
-                elif tumors_type[i] == 'me':
-                    me_val_iou.append(val_iou)
-                elif tumors_type[i] == 'pi':
-                    pi_val_iou.append(val_iou)
+            # --- VECTORIZED MACRO IOU (CORRECTED) ---
+            # 1. Sum Intersection & Union per image
+            intersection = (preds * targets).sum(dim=(1, 2, 3))
+            union = preds.sum(dim=(1, 2, 3)) + targets.sum(dim=(1, 2, 3)) - intersection
+            
+            # 2. Calculate IoU per image
+            batch_ious = (intersection + 1e-6) / (union + 1e-6)
+            
+            # 3. FIX: Extend the list with individual scores (move to CPU first) instead of append
+            ious.extend(batch_ious.detach().cpu().tolist())
     
-    save_dir = 'validation_output_masks'
+    # Create a specific folder for this expert
+    save_dir = f'validation_output_masks_{tumor_type_name}'
     os.makedirs(save_dir, exist_ok=True)
+    
     for i, output in enumerate(val_outputs):
         save_image((output > 0.5).float(), os.path.join(save_dir, f'epoch_{epoch}_batch_{i}_output.png'))
 
-    len_gl = len(gl_val_iou)
-    len_me = len(me_val_iou)
-    len_pi = len(pi_val_iou)
-    total_samples = len_gl + len_me + len_pi
-    
-    gl_miou = np.mean(gl_val_iou) if len_gl > 0 else 0
-    me_miou = np.mean(me_val_iou) if len_me > 0 else 0
-    pi_miou = np.mean(pi_val_iou) if len_pi > 0 else 0
-    weighted_miou = (gl_miou * len_gl + me_miou * len_me + pi_miou * len_pi) / total_samples if total_samples > 0 else 0
-
+    mean_iou = np.mean(ious) if len(ious) > 0 else 0
     val_loss = running_loss / len(val_loader)
 
-    print(f'\n[VAL] Loss: {val_loss:.4f}')
-    print(f'GL: {gl_miou:.4f} ({len_gl}) | ME: {me_miou:.4f} ({len_me}) | PI: {pi_miou:.4f} ({len_pi}) | Weighted: {weighted_miou:.4f}')
+    print(f'\n[VAL] Loss: {val_loss:.4f} | {tumor_type_name.upper()} mIoU: {mean_iou:.4f}')
 
-    return val_loss, weighted_miou
+    return val_loss, mean_iou
 
 
 def main(args):
@@ -143,7 +128,7 @@ def main(args):
     print(f"|                niter: {args.niter}")
     print(":==========================================================")
 
-    train_loader, val_loader = get_data_loader(args.data_dir, args.bsz)
+    train_loader, val_loader = get_data_loader(args.data_dir, args.bsz, target_tumor_type=args.tumor_type)
 
     model = UNet(in_channels=1, out_channels=1, feature_dims=64) 
 
@@ -165,17 +150,15 @@ def main(args):
     
     scheduler = CosineAnnealingLR(optimizer, T_max=args.niter, eta_min=1e-6)
     
-    best_weighted_miou = float('-inf')
+    best_val_mIoU = float('-inf')
     
-    patience = 7
-    trigger_times = 0
 
     for epoch in range(args.niter): 
         print(f'\nEpoch {epoch+1}/{args.niter}')
         start_time = time.time()
         
-        train(model, train_loader, optimizer, criterion, iou_metric, device)
-        val_loss, weighted_miou = validate(model, val_loader, criterion, iou_metric, device, epoch)
+        train(model, train_loader, optimizer, criterion, iou_metric, device, args.tumor_type)
+        val_loss, mean_iou = validate(model, val_loader, criterion, iou_metric, device, epoch, args.tumor_type)
         
         scheduler.step()
         
@@ -183,20 +166,20 @@ def main(args):
         epoch_time = end_time - start_time
         print(f'\nEpoch {epoch+1} completed in {epoch_time:.2f} seconds\n')
         
-        if weighted_miou > best_weighted_miou:
-            best_weighted_miou = weighted_miou
+        if mean_iou > best_val_mIoU:
+            best_val_mIoU = mean_iou
             os.makedirs(args.logpath, exist_ok=True)
-            torch.save(model.state_dict(), os.path.join(args.logpath, 'best_model.pth'))
-            print(f'Best model saved with weighted_miou: {best_weighted_miou:.4f}')
-            trigger_times = 0
-        # else:
-        #     trigger_times += 1
-        #     print(f'Early stopping counter: {trigger_times} out of {patience}')
-        #     if trigger_times >= patience:
-        #         print('Early stopping triggered.')
-        #         break
+            # Save with a specific name for the expert
+            save_path = os.path.join(args.logpath, f'best_model_{args.tumor_type}.pth')
+            # FIX 2: Correctly save weights regardless of DataParallel
+            if isinstance(model, nn.DataParallel):
+                torch.save(model.module.state_dict(), save_path)
+            else:
+                torch.save(model.state_dict(), save_path)
+                
+            print(f'New Best {args.tumor_type} model saved with mean IoU: {best_val_mIoU:.4f}')
     
-    print(f'Best model saved with weighted miou: {best_weighted_miou:.4f}')
+    print(f'Best {args.tumor_type} model saved with mean IoU: {best_val_mIoU:.4f} Location: {save_path}')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train UNet on brain tumor segmentation using BRISC 2025 dataset")
@@ -204,7 +187,14 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, default=1e-3, help='Learning rate for optimizer')
     parser.add_argument('--niter', type=int, default=30, help='Number of training iterations (epochs)')
     parser.add_argument('--data_dir', type=str, default='segmentation', help='Directory where dataset is located')
+
+    # NEW ARGUMENT
+    parser.add_argument('--tumor_type', type=str, required=True, 
+                        choices=['glioma', 'meningioma', 'pituitary'],
+                        help='Which expert to train? (Filters dataset)')
+    
     parser.add_argument('--logpath', type=str, default='log', help='Directory to save the best model checkpoint')
+
     
     args = parser.parse_args()
     main(args)
