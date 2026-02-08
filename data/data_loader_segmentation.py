@@ -9,7 +9,7 @@ from torchvision.transforms import functional as F
 from PIL import Image
 
 # ==========================================
-# 1. The "Medical-Grade" Elastic Transform
+# 1. The "Medical-Grade" Elastic Transform (PLATINUM)
 # ==========================================
 class ElasticDeformPair:
     """
@@ -35,25 +35,35 @@ class ElasticDeformPair:
         
         _, h, w = image_t.shape
 
-        # 3. Generate Separate Displacement Fields (dx, dy)
-        # We generate them separately to ensure total independence and randomness
-        dx = torch.randn(1, h, w).numpy()[0] * self.sigma
-        dy = torch.randn(1, h, w).numpy()[0] * self.sigma
+        # 3. Generate Random Noise (Unit Gaussian)
+        # Note: We do NOT multiply by sigma here. Sigma is only for the Blur.
+        dx = torch.randn(h, w).numpy()
+        dy = torch.randn(h, w).numpy()
 
-        # 4. Smooth the fields (Gaussian Blur)
-        # This makes the distortion "wavy" rather than "jittery"
+        # 4. Smooth the fields (Gaussian Blur) with Sigma
+        # This controls the "smoothness" or "frequency" of the distortion
         dx = cv2.GaussianBlur(dx, (0, 0), self.sigma)
         dy = cv2.GaussianBlur(dy, (0, 0), self.sigma)
 
-        # 5. Convert back to Tensor and Scale by Alpha
-        dx = torch.from_numpy(dx).unsqueeze(0) * self.alpha
-        dy = torch.from_numpy(dy).unsqueeze(0) * self.alpha
+        # 5. Scale by Alpha (Magnitude) and Cast to Float32
+        # This controls the "intensity" or "amplitude" of the distortion
+        dx = torch.from_numpy(dx).float() * self.alpha
+        dy = torch.from_numpy(dy).float() * self.alpha
 
-        # 6. STACK them into the (2, H, W) shape required by the PyTorch API
-        # This prevents the "TypeError" mentioned in critiques
-        displacement = torch.cat([dx, dy], dim=0)
+        # 6. STACK them into the (H, W, 2) shape
+        displacement = torch.stack([dx, dy], dim=-1) # (H, W, 2)
+        displacement = displacement.unsqueeze(0)     # (1, H, W, 2) for Batch Dim
+        
+        # -----------------------------------------------------------
+        #  CRITICAL FIX: NORMALIZE DISPLACEMENT
+        # Torchvision expects normalized [-1, 1] coordinates.
+        # A shift of 'w/2' pixels equals a shift of '1.0' in normalized space.
+        # -----------------------------------------------------------
+        displacement[..., 0] /= (w / 2.0)  # Normalize X
+        displacement[..., 1] /= (h / 2.0)  # Normalize Y
 
         # 7. Apply SAME field with DIFFERENT interpolation
+        # image_t shape is (1, H, W)
         image_d = F.elastic_transform(image_t, displacement, interpolation=transforms.InterpolationMode.BILINEAR)
         mask_d  = F.elastic_transform(mask_t,  displacement, interpolation=transforms.InterpolationMode.NEAREST)
 
@@ -68,7 +78,8 @@ class SegmentationDataset(Dataset):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
         self.transform = transform
-        self.images = os.listdir(image_dir)
+        # PRO TIP: Sorting ensures reproducibility across different machines
+        self.images = sorted(os.listdir(image_dir)) 
 
     def __len__(self):
         return len(self.images)
