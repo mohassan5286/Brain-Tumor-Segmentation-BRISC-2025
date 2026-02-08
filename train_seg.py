@@ -189,12 +189,12 @@ def main(args):
             torch.save(model.state_dict(), os.path.join(args.logpath, 'best_model.pth'))
             print(f'Best model saved with weighted_miou: {best_weighted_miou:.4f}')
             trigger_times = 0
-        else:
-            trigger_times += 1
-            print(f'Early stopping counter: {trigger_times} out of {patience}')
-            if trigger_times >= patience:
-                print('Early stopping triggered.')
-                break
+        # else:
+        #     trigger_times += 1
+        #     print(f'Early stopping counter: {trigger_times} out of {patience}')
+        #     if trigger_times >= patience:
+        #         print('Early stopping triggered.')
+        #         break
     
     print(f'Best model saved with weighted miou: {best_weighted_miou:.4f}')
 
