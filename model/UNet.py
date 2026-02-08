@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .transformer import PositionEmbeddingSine, Transformer
+from torchvision import models
+from torchvision.models.feature_extraction import create_feature_extractor
 
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -40,9 +42,11 @@ class SpatialAttention(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, in_channels, out_channels, feature_dims):
+    def __init__(self, in_channels, out_channels, feature_dims, fine_tune=False, verbose=False):
         super(UNet, self).__init__()
-    
+
+        self.verbose=verbose
+        
         self.encoder1 = DoubleConv(in_channels, feature_dims)
         self.encoder2 = DoubleConv(feature_dims * 2, feature_dims * 2)
         self.encoder3 = DoubleConv(feature_dims * 2, feature_dims * 4)
@@ -135,8 +139,29 @@ class UNet(nn.Module):
         )
 
         
-        self.bottleneck_conv = DoubleConv(feature_dims * 8, feature_dims * 16)
+        # self.bottleneck_conv = DoubleConv(feature_dims * 8, feature_dims * 16)
+
+        full_swin = models.swin_t(weights='DEFAULT')
         
+        if fine_tune:
+            print('[INFO]: Fine-tuning all layers...')
+            for params in full_swin.parameters():
+                params.requires_grad = True
+        if not fine_tune:
+            print('[INFO]: Freezing hidden layers...')
+            for params in full_swin.parameters():
+                params.requires_grad = False
+        
+        self.swin_bottleneck = full_swin.features[7]
+
+        self.before_swin_1x1_conv = nn.Conv2d(feature_dims * 8, 768, kernel_size=1, stride=1)
+        self.after_swin_1x1_conv = nn.Conv2d(768, feature_dims * 16, kernel_size=1, stride=1)
+
+        print(self.swin_bottleneck)
+        
+        del full_swin
+        torch.cuda.empty_cache()
+       
         self.upconv4 = nn.ConvTranspose2d(feature_dims * 16, feature_dims * 8, kernel_size=2, stride=2)
         self.decoder4 = DoubleConv(feature_dims * 16, feature_dims * 8)
         self.upconv3 = nn.ConvTranspose2d(feature_dims * 8, feature_dims * 4, kernel_size=2, stride=2)
@@ -156,22 +181,37 @@ class UNet(nn.Module):
         enc3 = self.encoder3(self.pool(enc2))
         attentioned_layer2 = self.spatial_attention2(enc3)
         enc4 = self.encoder4(attentioned_layer2)
-        
+
+        if self.verbose:
+            print(f"Enc1: {enc1.shape} | Att1: {attentioned_layer1.shape} | Enc2: {enc2.shape}")
+            print(f"Enc3: {enc3.shape} | Att2: {attentioned_layer2.shape} | Enc4: {enc4.shape}")
+
         # Bottleneck
         bottleneck = self.pool(enc4)
-        bottleneck = self.bottleneck_conv(bottleneck)
         
+        if self.verbose: print(f"Bottleneck pre-transformer: {bottleneck.shape}")
+
+        bottleneck = self.before_swin_1x1_conv(bottleneck) 
+        if self.verbose: print(f"Before Bottleneck swin: {bottleneck.shape}")
+        bottleneck = self.swin_bottleneck(bottleneck.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
+        if self.verbose: print(f"Bottleneck swin: {bottleneck.shape}")
+        bottleneck = self.after_swin_1x1_conv(bottleneck)
+        if self.verbose: print(f"After Bottleneck swin: {bottleneck.shape}")
+
         b, c, h, w = bottleneck.shape
+        
         bottleneck_avg = bottleneck.mean(dim=(2, 3), keepdim=True).squeeze(-1)
         bottleneck_pe = self.pe_layer(bottleneck)
         
         transformer_output = self.transformer(bottleneck, None, bottleneck_avg, self.embed.weight, bottleneck_pe) # (bsz,1024,1)
-
+        if self.verbose: print(f"Transformer output: {transformer_output.shape}")
+        
         transformer_output_expanded = transformer_output.unsqueeze(-1) # (bsz,1024,1,1)
         bottleneck = bottleneck * transformer_output_expanded
         
         # Decoder
         dec4 = self.upconv4(bottleneck)
+        if self.verbose: print(f"Dec4 (after upconv): {dec4.shape}")
 
         enc4_avg = self.fc_4(transformer_output.squeeze(-1)).unsqueeze(2)
         enc4_pe = self.pe_layer_4(enc4)
@@ -182,8 +222,8 @@ class UNet(nn.Module):
         dec4 = torch.cat((dec4, enc4), dim=1)
         dec4 = self.decoder4(dec4)
 
+        if self.verbose: print(f"Dec4 (after cat/conv): {dec4.shape}")
 
-        
         dec3 = self.upconv3(dec4)
         
         enc3_avg = self.fc_3(transformer_output_4.squeeze(-1)).unsqueeze(2)
@@ -196,8 +236,7 @@ class UNet(nn.Module):
         dec3 = torch.cat((dec3, enc3), dim=1)
         dec3 = self.decoder3(dec3)
         
-
-
+        if self.verbose: print(f"Dec3: {dec3.shape}")
 
         dec2 = self.upconv2(dec3)
 
@@ -210,8 +249,7 @@ class UNet(nn.Module):
         dec2 = torch.cat((dec2, enc2), dim=1)
         dec2 = self.decoder2(dec2)
         
-
-
+        if self.verbose: print(f"Dec2: {dec2.shape}")
 
         dec1 = self.upconv1(dec2)
         
@@ -223,4 +261,8 @@ class UNet(nn.Module):
 
         dec1 = torch.cat((dec1, enc1), dim=1)
         dec1 = self.decoder1(dec1)
-        return torch.sigmoid(self.final_conv(dec1))
+
+        final_out = torch.sigmoid(self.final_conv(dec1))
+        if self.verbose: print(f"Final Output: {final_out.shape}")
+
+        return final_out
