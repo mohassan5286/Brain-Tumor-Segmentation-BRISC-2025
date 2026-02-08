@@ -1,5 +1,6 @@
 import os
 import torch
+import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
@@ -17,6 +18,7 @@ class SegmentationDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path = os.path.join(self.image_dir, self.images[idx])
+        # Robust mask extension handling
         mask_path = os.path.join(self.mask_dir, self.images[idx].replace('.jpg', '.png'))
 
         image = Image.open(img_path).convert("L")
@@ -25,7 +27,10 @@ class SegmentationDataset(Dataset):
         if self.transform is not None:
             image, mask = self.transform(image, mask)
 
-        tumor_type = self.images[idx].split('_')[3]
+        try:
+            tumor_type = self.images[idx].split('_')[3]
+        except:
+            tumor_type = "unknown"
 
         return image, mask, tumor_type
 
@@ -47,10 +52,14 @@ class JointTransform:
         return image, mask
 
 def get_data_loader(data_dir, batch_size):
+    # --- TRAINING TRANSFORM ---
     base_transform = transforms.Compose([
         transforms.Resize((256, 256)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean = [0.16666122], std = [0.17487395])
+        transforms.ToTensor(), # Convert to [0, 1] Float Tensor first
+        
+        # Z-SCORE NORMALIZATION (Per Image)
+        # (Pixel - ImageMean) / (ImageStd + Epsilon)
+        transforms.Lambda(lambda x: (x - x.mean()) / (x.std() + 1e-8))
     ])
 
     mask_transform = transforms.Compose([
@@ -61,10 +70,14 @@ def get_data_loader(data_dir, batch_size):
 
     train_transform = JointTransform(base_transform, mask_transform)
 
+    # --- TESTING TRANSFORM ---
+    # Must match training! We want test images to be Z-Scored too.
     test_transform = transforms.Compose([
         transforms.Resize((256, 256)),
         transforms.ToTensor(),
-        transforms.Normalize(mean = [0.16666122], std = [0.17487395])
+        
+        # Z-SCORE NORMALIZATION (Per Image)
+        transforms.Lambda(lambda x: (x - x.mean()) / (x.std() + 1e-8))
     ])
 
     test_mask_transform = transforms.Compose([
