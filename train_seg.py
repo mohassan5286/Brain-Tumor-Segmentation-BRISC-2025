@@ -153,7 +153,7 @@ def main(args):
         model = torch.nn.DataParallel(model, device_ids=ids)
     
     criterion = DiceLoss()  
-    optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay = 1e-3)
+    optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     iou_metric = BinaryJaccardIndex().to(device)
     
     scheduler = CosineAnnealingLR(optimizer, T_max=args.niter, eta_min=1e-6)
