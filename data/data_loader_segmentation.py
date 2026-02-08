@@ -1,7 +1,8 @@
 import os
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
+from torchvision import transforms as T
+import torchvision.transforms.functional as TF
 from PIL import Image
 import random
 
@@ -30,52 +31,47 @@ class SegmentationDataset(Dataset):
         return image, mask, tumor_type
 
 class JointTransform:
-    def __init__(self, base_transform, mask_transform=None):
-        self.base_transform = base_transform
-        self.mask_transform = mask_transform if mask_transform else base_transform
+    def __init__(self, size=(256, 256), scale=(0.8, 1.0), ratio=(0.75, 1.33), is_train=True):
+        self.size = size
+        self.scale = scale
+        self.ratio = ratio
+        self.is_train = is_train
+        self.mean = [0.16666122]
+        self.std = [0.17487395]
 
     def __call__(self, image, mask):
-        seed = random.randint(0, 2**32)
-        random.seed(seed)
-        torch.manual_seed(seed)
-        image = self.base_transform(image)
+        if self.is_train:
+            i, j, h, w = T.RandomResizedCrop.get_params(
+                image, scale=self.scale, ratio=self.ratio
+            )
+            image = TF.resized_crop(image, i, j, h, w, self.size, interpolation=T.InterpolationMode.BILINEAR)
+            mask = TF.resized_crop(mask, i, j, h, w, self.size, interpolation=T.InterpolationMode.NEAREST)
 
-        random.seed(seed)
-        torch.manual_seed(seed)
-        mask = self.mask_transform(mask)
+            if random.random() > 0.5:
+                image = TF.hflip(image)
+                mask = TF.hflip(mask)
+
+            if random.random() > 0.5:
+                angle = random.uniform(-15, 15)
+                image = TF.rotate(image, angle)
+                mask = TF.rotate(mask, angle, interpolation=T.InterpolationMode.NEAREST)
+        else:
+            image = TF.resize(image, self.size, interpolation=T.InterpolationMode.BILINEAR)
+            mask = TF.resize(mask, self.size, interpolation=T.InterpolationMode.NEAREST)
+
+        image = TF.to_tensor(image)
+        mask = TF.to_tensor(mask)
+
+        image = TF.normalize(image, mean=self.mean, std=self.std)
+
+        mask = (mask > 0.5).float()
 
         return image, mask
 
 def get_data_loader(data_dir, batch_size):
-    base_transform = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.RandomRotation(degrees=15),
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.ToTensor(),
-        transforms.Normalize(mean = [0.16666122], std = [0.17487395])
-    ])
 
-    mask_transform = transforms.Compose([
-        transforms.Resize((256, 256), interpolation = transforms.InterpolationMode.NEAREST),
-        transforms.RandomRotation(degrees=15),
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.ToTensor(),
-        transforms.Lambda(lambda x: (x > 0.5).float())
-    ])
-
-    train_transform = JointTransform(base_transform, mask_transform)
-
-    test_transform = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean = [0.16666122], std = [0.17487395])
-    ])
-
-    test_mask_transform = transforms.Compose([
-        transforms.Resize((256, 256), interpolation = transforms.InterpolationMode.NEAREST),
-        transforms.ToTensor(),
-        transforms.Lambda(lambda x: (x > 0.5).float())
-    ])
+    train_transform = JointTransform(scale=(0.5, 1.0), ratio=(0.75, 1.33), is_train=True)
+    test_transform = JointTransform(is_train=False)
     
     train_dataset = SegmentationDataset(
         image_dir=os.path.join(data_dir, "train", "images"),
@@ -86,7 +82,7 @@ def get_data_loader(data_dir, batch_size):
     test_dataset = SegmentationDataset(
         image_dir=os.path.join(data_dir, "test", "images"),
         mask_dir=os.path.join(data_dir, "test", "masks"),
-        transform=JointTransform(test_transform, test_mask_transform)
+        transform=test_transform
     )
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
