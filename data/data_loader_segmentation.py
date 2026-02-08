@@ -51,7 +51,6 @@ def get_data_loader(data_dir, batch_size):
         transforms.RandomResizedCrop(
             size=(256, 256), 
             scale=(0.8, 1.2), 
-            antialias=True
         ),
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.ToTensor(),
@@ -63,7 +62,6 @@ def get_data_loader(data_dir, batch_size):
             size=(256, 256), 
             scale=(0.8, 1.2), 
             interpolation=transforms.InterpolationMode.NEAREST,
-            antialias=False
         ),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: (x > 0.5).float())
