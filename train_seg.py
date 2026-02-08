@@ -38,6 +38,7 @@ class DiceLoss(nn.Module):
         
         return 1 - dice
 
+
 def count_parameters(model, trainable_only=False):
     if trainable_only:
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -89,14 +90,12 @@ def train(model, train_loader, optimizer, criterion, iou_metric, device):
 def validate(model, val_loader, criterion, iou_metric, device, epoch):
     model.eval()
     running_loss = 0.0
-    val_outputs = []
     gl_val_iou, me_val_iou, pi_val_iou = [], [], []
 
     with torch.no_grad():
         for inputs, targets, tumors_type in val_loader:
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = model(inputs)
-            val_outputs.append(outputs)
             loss = criterion(outputs, targets)
             running_loss += loss.item()
 
@@ -111,10 +110,6 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
                 elif tumors_type[i] == 'pi':
                     pi_val_iou.append(val_iou)
     
-    save_dir = 'validation_output_masks'
-    os.makedirs(save_dir, exist_ok=True)
-    for i, output in enumerate(val_outputs):
-        save_image((output > 0.5).float(), os.path.join(save_dir, f'epoch_{epoch}_batch_{i}_output.png'))
 
     len_gl = len(gl_val_iou)
     len_me = len(me_val_iou)
@@ -167,9 +162,6 @@ def main(args):
     
     best_weighted_miou = float('-inf')
     
-    patience = 7
-    trigger_times = 0
-
     for epoch in range(args.niter): 
         print(f'\nEpoch {epoch+1}/{args.niter}')
         start_time = time.time()
@@ -188,13 +180,7 @@ def main(args):
             os.makedirs(args.logpath, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(args.logpath, 'best_model.pth'))
             print(f'Best model saved with weighted_miou: {best_weighted_miou:.4f}')
-            trigger_times = 0
-        else:
-            trigger_times += 1
-            print(f'Early stopping counter: {trigger_times} out of {patience}')
-            if trigger_times >= patience:
-                print('Early stopping triggered.')
-                break
+            
     
     print(f'Best model saved with weighted miou: {best_weighted_miou:.4f}')
 
