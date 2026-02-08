@@ -24,6 +24,20 @@ def dice_coefficient(pred, target, threshold=0.5):
     return 2.0 * intersection / union
 
 
+class DiceLoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(DiceLoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1):
+        #flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+        
+        intersection = (inputs * targets).sum()                            
+        dice = (2.*intersection + smooth)/(inputs.sum() + targets.sum() + smooth)  
+        
+        return 1 - dice
+
 def count_parameters(model, trainable_only=False):
     if trainable_only:
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -145,7 +159,7 @@ def main(args):
         ids = list(range(torch.cuda.device_count())) 
         model = torch.nn.DataParallel(model, device_ids=ids)
     
-    criterion = nn.BCELoss()  
+    criterion = DiceLoss()  
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay = 1e-3)
     iou_metric = BinaryJaccardIndex().to(device)
     
