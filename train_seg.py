@@ -167,7 +167,7 @@ def main(args):
     
     best_weighted_miou = float('-inf')
     
-    patience = 7
+    patience = 30
     trigger_times = 0
 
     for epoch in range(args.niter): 
