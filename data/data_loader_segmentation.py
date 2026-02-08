@@ -1,5 +1,7 @@
 import os
 import torch
+import cv2
+import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
@@ -29,6 +31,24 @@ class SegmentationDataset(Dataset):
 
         return image, mask, tumor_type
 
+class UnsharpMask:
+   
+    def __init__(self, strength=1.5, sigma=1.0):
+        self.strength = strength
+        self.sigma = sigma
+
+    def __call__(self, img):
+        img_np = np.array(img).astype(np.float32)
+
+     
+        blurred = cv2.GaussianBlur(img_np, (0, 0), self.sigma)
+
+        sharp = img_np * (1 + self.strength) - blurred * self.strength
+
+        sharp = np.clip(sharp, 0, 255).astype(np.uint8)
+
+        return Image.fromarray(sharp)
+        
 class JointTransform:
     def __init__(self, base_transform, mask_transform=None):
         self.base_transform = base_transform
@@ -49,8 +69,9 @@ class JointTransform:
 def get_data_loader(data_dir, batch_size):
     base_transform = transforms.Compose([
         transforms.Resize((256, 256)),
+        UnsharpMask(strength=1.5, sigma=1.0),
         transforms.ToTensor(),
-        transforms.Normalize(mean = [0.16666122], std = [0.17487395])
+        transforms.Lambda(lambda x: (x - x.mean()) / (x.std() + 1e-8))
     ])
 
     mask_transform = transforms.Compose([
@@ -63,8 +84,9 @@ def get_data_loader(data_dir, batch_size):
 
     test_transform = transforms.Compose([
         transforms.Resize((256, 256)),
+        UnsharpMask(strength=1.5, sigma=1.0),
         transforms.ToTensor(),
-        transforms.Normalize(mean = [0.16666122], std = [0.17487395])
+        transforms.Lambda(lambda x: (x - x.mean()) / (x.std() + 1e-8))
     ])
 
     test_mask_transform = transforms.Compose([
