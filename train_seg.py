@@ -28,7 +28,6 @@ class ComboLoss(nn.Module):
         super(ComboLoss, self).__init__()
 
     def forward(self, inputs, targets, smooth=1):
-        #flatten label and prediction tensors
         inputs = inputs.view(-1)
         targets = targets.view(-1)
         
@@ -137,11 +136,28 @@ def main(args):
     print(f"|                  bsz: {args.bsz}")
     print(f"|                   lr: {args.lr}")
     print(f"|                niter: {args.niter}")
+    if args.resume:
+        print(f"|               resume: {args.resume}")
     print(":==========================================================")
 
     train_loader, val_loader = get_data_loader(args.data_dir, args.bsz)
 
     model = UNet(in_channels=1, out_channels=1, feature_dims=64) 
+
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print(f"=> Loading checkpoint '{args.resume}'")
+            checkpoint = torch.load(args.resume, map_location='cpu')
+            
+            new_state_dict = {}
+            for k, v in checkpoint.items():
+                name = k[7:] if k.startswith('module.') else k
+                new_state_dict[name] = v
+                
+            model.load_state_dict(new_state_dict)
+            print("=> Checkpoint loaded successfully")
+        else:
+            print(f"=> No checkpoint found at '{args.resume}'")
 
     total_params = count_parameters(model)
     trainable_params = count_parameters(model, trainable_only=True)
@@ -192,6 +208,7 @@ if __name__ == "__main__":
     parser.add_argument('--niter', type=int, default=30, help='Number of training iterations (epochs)')
     parser.add_argument('--data_dir', type=str, default='segmentation', help='Directory where dataset is located')
     parser.add_argument('--logpath', type=str, default='log', help='Directory to save the best model checkpoint')
+    parser.add_argument('--resume', type=str, default=None, help='Path to previous checkpoint to resume from (e.g., log/best_model.pth)')
     
     args = parser.parse_args()
     main(args)
