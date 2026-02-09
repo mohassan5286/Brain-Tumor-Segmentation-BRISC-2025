@@ -8,7 +8,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchmetrics.classification import BinaryJaccardIndex
 from model.UNet import UNet  
-from data.data_loader_segmentation import get_data_loader
+from data.data_loader_segmentation import get_dataset
 from torchvision.utils import save_image
 
 def dice_coefficient(pred, target, threshold=0.5):
@@ -167,7 +167,7 @@ def main(args):
     print(f"|                niter: {args.niter}")
     print(":==========================================================")
 
-    train_loader, val_loader = get_data_loader(args.data_dir, args.bsz)
+    train_dataset, val_dataset = get_dataset(args.data_dir, args.bsz)
 
     model = UNet(in_channels=1, out_channels=1, feature_dims=64) 
 

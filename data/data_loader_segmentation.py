@@ -46,7 +46,7 @@ class JointTransform:
 
         return image, mask
 
-def get_data_loader(data_dir, batch_size):
+def get_dataset(data_dir, batch_size):
     base_transform = transforms.Compose([
         transforms.Resize((256, 256)),
         transforms.RandomRotation(degrees=15),
@@ -88,8 +88,5 @@ def get_data_loader(data_dir, batch_size):
         mask_dir=os.path.join(data_dir, "test", "masks"),
         transform=JointTransform(test_transform, test_mask_transform)
     )
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
-
-    return train_loader, test_loader
+    
+    return train_dataset, test_dataset
