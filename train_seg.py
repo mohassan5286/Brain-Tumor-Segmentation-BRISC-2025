@@ -160,7 +160,7 @@ def main(args):
     
     check_categorical_imbalance(train_loader)
     check_categorical_imbalance(val_loader)
-
+    return
     model = UNet(in_channels=1, out_channels=1, feature_dims=64) 
 
     total_params = count_parameters(model)
