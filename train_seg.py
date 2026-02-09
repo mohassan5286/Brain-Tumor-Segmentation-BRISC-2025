@@ -10,6 +10,8 @@ from torchmetrics.classification import BinaryJaccardIndex
 from model.UNet import UNet  
 from data.data_loader_segmentation import get_dataset
 from torchvision.utils import save_image
+from sklearn.model_selection import KFold
+from torch.utils.data import Subset, ConcatDataset, DataLoader
 
 def dice_coefficient(pred, target, threshold=0.5):
     pred = (pred > threshold).float()
@@ -169,6 +171,10 @@ def main(args):
 
     train_dataset, val_dataset = get_dataset(args.data_dir, args.bsz)
 
+    dataset = ConcatDataset([train_dataset, val_dataset])
+
+    kf = KFold(n_splits=5, shuffle=True, random_state=42)
+
     model = UNet(in_channels=1, out_channels=1, feature_dims=64) 
 
     total_params = count_parameters(model)
@@ -194,31 +200,46 @@ def main(args):
     patience = 7
     trigger_times = 0
 
-    for epoch in range(args.niter): 
-        print(f'\nEpoch {epoch+1}/{args.niter}')
-        start_time = time.time()
+    for fold, (train_idx, val_idx) in enumerate(kf.split(dataset)):
+        print(f"Fold {fold}:")
+        print(f"Train indices: {train_idx[:5]}")
+        print(f"Validation indices: {val_idx[:5]}")
+
+        train_subset = Subset(dataset, train_idx)
+        val_subset = Subset(dataset, val_idx)
+
+        train_loader = DataLoader(train_subset, batch_size=args.bsz, shuffle=True, num_workers=4, pin_memory=True)
+        val_loader = DataLoader(val_subset, batch_size=args.bsz, shuffle=False, num_workers=4, pin_memory=True)
+
+
+        print(f"Train subset size: {len(train_subset)}, Validation subset size: {len(val_subset)}")
+        for epoch in range(args.niter): 
+            print(f'\nEpoch {epoch+1}/{args.niter}')
+            start_time = time.time()
+            
+            train(model, train_loader, optimizer, criterion, iou_metric, device)
+            val_loss, weighted_miou = validate(model, val_loader, criterion, iou_metric, device, epoch)
+            
+            scheduler.step()
+            
+            end_time = time.time()
+            epoch_time = end_time - start_time
+            print(f'\nEpoch {epoch+1} completed in {epoch_time:.2f} seconds\n')
+            
+            if weighted_miou > best_weighted_miou:
+                best_weighted_miou = weighted_miou
+                os.makedirs(args.logpath, exist_ok=True)
+                torch.save(model.state_dict(), os.path.join(args.logpath, 'best_model.pth'))
+                print(f'Best model saved with weighted_miou: {best_weighted_miou:.4f}')
+                trigger_times = 0
+            else:
+                trigger_times += 1
+                print(f'Early stopping counter: {trigger_times} out of {patience}')
+                if trigger_times >= patience:
+                    print('Early stopping triggered.')
+                    break
         
-        train(model, train_loader, optimizer, criterion, iou_metric, device)
-        val_loss, weighted_miou = validate(model, val_loader, criterion, iou_metric, device, epoch)
-        
-        scheduler.step()
-        
-        end_time = time.time()
-        epoch_time = end_time - start_time
-        print(f'\nEpoch {epoch+1} completed in {epoch_time:.2f} seconds\n')
-        
-        if weighted_miou > best_weighted_miou:
-            best_weighted_miou = weighted_miou
-            os.makedirs(args.logpath, exist_ok=True)
-            torch.save(model.state_dict(), os.path.join(args.logpath, 'best_model.pth'))
-            print(f'Best model saved with weighted_miou: {best_weighted_miou:.4f}')
-            trigger_times = 0
-        else:
-            trigger_times += 1
-            print(f'Early stopping counter: {trigger_times} out of {patience}')
-            if trigger_times >= patience:
-                print('Early stopping triggered.')
-                break
+    validate(model, val_loader, criterion, iou_metric, device, epoch)
     
     print(f'Best model saved with weighted miou: {best_weighted_miou:.4f}')
 
