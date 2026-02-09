@@ -4,6 +4,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
 import random
+import numpy as np
 
 class SegmentationDataset(Dataset):
     def __init__(self, image_dir, mask_dir, transform=None):
@@ -22,7 +23,7 @@ class SegmentationDataset(Dataset):
         image = Image.open(img_path).convert("L")
         mask = Image.open(mask_path).convert("L")
 
-        if self.transform is not None:
+        if self.transform:
             image, mask = self.transform(image, mask)
 
         tumor_type = self.images[idx].split('_')[3]
@@ -36,6 +37,7 @@ class JointTransform:
 
     def __call__(self, image, mask):
         seed = random.randint(0, 2**32)
+        
         random.seed(seed)
         torch.manual_seed(seed)
         image = self.base_transform(image)
@@ -51,14 +53,16 @@ def get_data_loader(data_dir, batch_size):
         transforms.Resize((256, 256)),
         transforms.RandomRotation(degrees=15),
         transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomVerticalFlip(p=0.5),
         transforms.ToTensor(),
-        transforms.Normalize(mean = [0.16666122], std = [0.17487395])
+        transforms.Normalize(mean=[0.16666122], std=[0.17487395])
     ])
 
     mask_transform = transforms.Compose([
-        transforms.Resize((256, 256), interpolation = transforms.InterpolationMode.NEAREST),
+        transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST),
         transforms.RandomRotation(degrees=15),
         transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomVerticalFlip(p=0.5),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: (x > 0.5).float())
     ])
@@ -68,11 +72,11 @@ def get_data_loader(data_dir, batch_size):
     test_transform = transforms.Compose([
         transforms.Resize((256, 256)),
         transforms.ToTensor(),
-        transforms.Normalize(mean = [0.16666122], std = [0.17487395])
+        transforms.Normalize(mean=[0.16666122], std=[0.17487395])
     ])
 
     test_mask_transform = transforms.Compose([
-        transforms.Resize((256, 256), interpolation = transforms.InterpolationMode.NEAREST),
+        transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: (x > 0.5).float())
     ])
