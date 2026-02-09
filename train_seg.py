@@ -133,6 +133,19 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
 
     return val_loss, weighted_miou
 
+from collections import Counter
+
+def check_categorical_imbalance(loader):
+    counts = Counter()
+    for _, _, tumor_types in loader:
+        counts.update(tumor_types)
+    
+    total = sum(counts.values())
+    print("\n--- Categorical Distribution ---")
+    for t_type, count in counts.items():
+        percentage = (count / total) * 100
+        print(f"Class {t_type}: {count} samples ({percentage:.2f}%)")
+    return counts
 
 def main(args):
     print(":=========== Brain Tumor Segmentation ===========")
@@ -144,6 +157,9 @@ def main(args):
     print(":==========================================================")
 
     train_loader, val_loader = get_data_loader(args.data_dir, args.bsz)
+    
+    check_categorical_imbalance(train_loader)
+    check_categorical_imbalance(val_loader)
 
     model = UNet(in_channels=1, out_channels=1, feature_dims=64) 
 
