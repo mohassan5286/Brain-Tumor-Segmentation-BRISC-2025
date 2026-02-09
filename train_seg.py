@@ -244,10 +244,8 @@ def main(args):
                 if trigger_times >= patience:
                     print('Early stopping triggered.')
                     break
-        
-    validate(model, val_loader, criterion, iou_metric, device, epoch)
     
-    print(f'Best model saved with weighted miou: {best_weighted_miou:.4f}')
+            print(f'Best model saved with weighted miou: {best_weighted_miou:.4f}')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train UNet on brain tumor segmentation using BRISC 2025 dataset")
