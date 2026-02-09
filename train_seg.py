@@ -173,6 +173,8 @@ def main(args):
 
     full_dataset = ConcatDataset([train_dataset, val_dataset])
 
+    indices = np.arange(len(full_dataset))
+
     labels = []
     for i in range(len(full_dataset)):
         _, _, tumor_type = full_dataset[i]
@@ -180,7 +182,7 @@ def main(args):
 
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
-    for fold, (train_idx, val_idx) in enumerate(skf.split(full_dataset, labels)):
+    for fold, (train_idx, val_idx) in enumerate(skf.split(indices, labels)):
         print(f"Fold {fold}:")
         print(f"Train indices: {train_idx[:5]}")
         print(f"Validation indices: {val_idx[:5]}")
@@ -233,7 +235,7 @@ def main(args):
             if weighted_miou > best_weighted_miou:
                 best_weighted_miou = weighted_miou
                 os.makedirs(args.logpath, exist_ok=True)
-                torch.save(model.state_dict(), os.path.join(args.logpath, 'best_model.pth'))
+                torch.save(model.state_dict(), os.path.join(args.logpath, f'best_model_fold_{fold}.pth'))
                 print(f'Best model saved with weighted_miou: {best_weighted_miou:.4f}')
                 trigger_times = 0
             else:
