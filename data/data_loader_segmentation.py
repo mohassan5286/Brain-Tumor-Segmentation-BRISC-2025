@@ -1,5 +1,6 @@
 import os
 import torch
+import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
@@ -29,6 +30,13 @@ class SegmentationDataset(Dataset):
 
         return image, mask, tumor_type
 
+class ContrastStretch:
+    def __call__(self, img):
+        img_np = np.array(img).astype(np.float32)
+        mn, mx = img_np.min(), img_np.max()
+        img_np = (img_np - mn) / (mx - mn + 1e-8) * 255.0
+        return Image.fromarray(img_np.astype(np.uint8))
+
 class JointTransform:
     def __init__(self, base_transform, mask_transform=None):
         self.base_transform = base_transform
@@ -51,6 +59,7 @@ def get_data_loader(data_dir, batch_size):
         transforms.Resize((256, 256)),
         transforms.RandomRotation(degrees=15),
         transforms.RandomHorizontalFlip(p=0.5),
+        ContrastStretch(),
         transforms.ToTensor(),
         transforms.Normalize(mean = [0.16666122], std = [0.17487395])
     ])
@@ -67,6 +76,7 @@ def get_data_loader(data_dir, batch_size):
 
     test_transform = transforms.Compose([
         transforms.Resize((256, 256)),
+        ContrastStretch(),
         transforms.ToTensor(),
         transforms.Normalize(mean = [0.16666122], std = [0.17487395])
     ])
