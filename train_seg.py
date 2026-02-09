@@ -147,6 +147,17 @@ def check_categorical_imbalance(loader):
         print(f"Class {t_type}: {count} samples ({percentage:.2f}%)")
     return counts
 
+# --- Train Categorical Distribution ---
+# Class gl: 1147 samples (29.16%)
+# Class pi: 1457 samples (37.05%)
+# Class me: 1329 samples (33.79%)
+
+# --- Val Categorical Distribution ---
+# Class me: 306 samples (35.58%)
+# Class pi: 300 samples (34.88%)
+# Class gl: 254 samples (29.53%)
+
+
 def main(args):
     print(":=========== Brain Tumor Segmentation ===========")
     print(f"|             datapath: {args.data_dir}")
@@ -157,10 +168,7 @@ def main(args):
     print(":==========================================================")
 
     train_loader, val_loader = get_data_loader(args.data_dir, args.bsz)
-    
-    check_categorical_imbalance(train_loader)
-    check_categorical_imbalance(val_loader)
-    return
+
     model = UNet(in_channels=1, out_channels=1, feature_dims=64) 
 
     total_params = count_parameters(model)
