@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchmetrics.classification import BinaryJaccardIndex
 from model.UNet import UNet  
 from data.data_loader_segmentation import get_data_loader
@@ -159,8 +159,8 @@ def main(args):
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     iou_metric = BinaryJaccardIndex().to(device)
     
-    scheduler = CosineAnnealingLR(optimizer, T_max=args.niter, eta_min=1e-6)
-    
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+
     best_weighted_miou = float('-inf')
     
     for epoch in range(args.niter): 
@@ -170,7 +170,7 @@ def main(args):
         train(model, train_loader, optimizer, criterion, iou_metric, device)
         val_loss, weighted_miou = validate(model, val_loader, criterion, iou_metric, device, epoch)
         
-        scheduler.step()
+        scheduler.step(val_loss)
         
         end_time = time.time()
         epoch_time = end_time - start_time
