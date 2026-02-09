@@ -50,19 +50,17 @@ class JointTransform:
 
 def get_data_loader(data_dir, batch_size):
     base_transform = transforms.Compose([
-        transforms.Resize((256, 256)),
+        transforms.RandomResizedCrop((256, 256), scale=(0.8, 1.0)),
         transforms.RandomRotation(degrees=15),
         transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomVerticalFlip(p=0.5),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.16666122], std=[0.17487395])
     ])
 
     mask_transform = transforms.Compose([
-        transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST),
+        transforms.RandomResizedCrop((256, 256), scale=(0.8, 1.0), interpolation=transforms.InterpolationMode.NEAREST),
         transforms.RandomRotation(degrees=15),
         transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomVerticalFlip(p=0.5),
         transforms.ToTensor(),
         transforms.Lambda(lambda x: (x > 0.5).float())
     ])
