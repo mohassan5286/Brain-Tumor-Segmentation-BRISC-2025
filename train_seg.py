@@ -10,7 +10,7 @@ from torchmetrics.classification import BinaryJaccardIndex
 from model.UNet import UNet  
 from data.data_loader_segmentation import get_dataset
 from torchvision.utils import save_image
-from sklearn.model_selection import KFold
+from sklearn.model_selection import StratifiedKFold
 from torch.utils.data import Subset, ConcatDataset, DataLoader
 
 def dice_coefficient(pred, target, threshold=0.5):
@@ -171,46 +171,50 @@ def main(args):
 
     train_dataset, val_dataset = get_dataset(args.data_dir, args.bsz)
 
-    dataset = ConcatDataset([train_dataset, val_dataset])
+    full_dataset = ConcatDataset([train_dataset, val_dataset])
 
-    kf = KFold(n_splits=5, shuffle=True, random_state=42)
+    labels = []
+    for i in range(len(full_dataset)):
+        _, _, tumor_type = full_dataset[i]
+        labels.append(tumor_type)
 
-    model = UNet(in_channels=1, out_channels=1, feature_dims=64) 
+    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
-    total_params = count_parameters(model)
-    trainable_params = count_parameters(model, trainable_only=True)
-    print(f"\nTotal # param.: {total_params}")
-    print(f"Learnable # param.: {trainable_params}")
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-    if torch.cuda.device_count() > 1:
-        print(f"Using {torch.cuda.device_count()} GPUs!")
-        ids = list(range(torch.cuda.device_count())) 
-        model = torch.nn.DataParallel(model, device_ids=ids)
-    
-    criterion = DiceLoss()  
-    optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay = 1e-3)
-    iou_metric = BinaryJaccardIndex().to(device)
-    
-    scheduler = CosineAnnealingLR(optimizer, T_max=args.niter, eta_min=1e-6)
-    
-    best_weighted_miou = float('-inf')
-    
-    patience = 7
-    trigger_times = 0
-
-    for fold, (train_idx, val_idx) in enumerate(kf.split(dataset)):
+    for fold, (train_idx, val_idx) in enumerate(skf.split(full_dataset, labels)):
         print(f"Fold {fold}:")
         print(f"Train indices: {train_idx[:5]}")
         print(f"Validation indices: {val_idx[:5]}")
 
-        train_subset = Subset(dataset, train_idx)
-        val_subset = Subset(dataset, val_idx)
+        train_subset = Subset(full_dataset, train_idx)
+        val_subset = Subset(full_dataset, val_idx)
 
         train_loader = DataLoader(train_subset, batch_size=args.bsz, shuffle=True, num_workers=4, pin_memory=True)
         val_loader = DataLoader(val_subset, batch_size=args.bsz, shuffle=False, num_workers=4, pin_memory=True)
 
+        model = UNet(in_channels=1, out_channels=1, feature_dims=64) 
+
+        total_params = count_parameters(model)
+        trainable_params = count_parameters(model, trainable_only=True)
+        print(f"\nTotal # param.: {total_params}")
+        print(f"Learnable # param.: {trainable_params}")
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.to(device)
+        if torch.cuda.device_count() > 1:
+            print(f"Using {torch.cuda.device_count()} GPUs!")
+            ids = list(range(torch.cuda.device_count())) 
+            model = torch.nn.DataParallel(model, device_ids=ids)
+        
+        criterion = DiceLoss()  
+        optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay = 1e-3)
+        iou_metric = BinaryJaccardIndex().to(device)
+        
+        scheduler = CosineAnnealingLR(optimizer, T_max=args.niter, eta_min=1e-6)
+        
+        best_weighted_miou = float('-inf')
+        
+        patience = 30
+        trigger_times = 0
 
         print(f"Train subset size: {len(train_subset)}, Validation subset size: {len(val_subset)}")
         for epoch in range(args.niter): 
