@@ -23,6 +23,20 @@ def dice_coefficient(pred, target, threshold=0.5):
     
     return 2.0 * intersection / union
 
+class ComboLoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(ComboLoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1):
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+        
+        intersection = (inputs * targets).sum()                            
+        dice_loss = 1 - (2.*intersection + smooth)/(inputs.sum() + targets.sum() + smooth)  
+        BCE = nn.functional.binary_cross_entropy(inputs, targets, reduction='mean')
+        combo_loss = BCE + dice_loss
+        
+        return combo_loss
 
 class DiceLoss(nn.Module):
     def __init__(self, weight=None, size_average=True):
@@ -89,14 +103,13 @@ def train(model, train_loader, optimizer, criterion, iou_metric, device):
 def validate(model, val_loader, criterion, iou_metric, device, epoch):
     model.eval()
     running_loss = 0.0
-    val_outputs = []
     gl_val_iou, me_val_iou, pi_val_iou = [], [], []
 
     with torch.no_grad():
         for inputs, targets, tumors_type in val_loader:
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = model(inputs)
-            val_outputs.append(outputs)
+            
             loss = criterion(outputs, targets)
             running_loss += loss.item()
 
@@ -111,10 +124,10 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
                 elif tumors_type[i] == 'pi':
                     pi_val_iou.append(val_iou)
     
-    save_dir = 'validation_output_masks'
-    os.makedirs(save_dir, exist_ok=True)
-    for i, output in enumerate(val_outputs):
-        save_image((output > 0.5).float(), os.path.join(save_dir, f'epoch_{epoch}_batch_{i}_output.png'))
+    # save_dir = 'validation_output_masks'
+    # os.makedirs(save_dir, exist_ok=True)
+    # for i, output in enumerate(val_outputs):
+    #     save_image((output > 0.5).float(), os.path.join(save_dir, f'epoch_{epoch}_batch_{i}_output.png'))
 
     len_gl = len(gl_val_iou)
     len_me = len(me_val_iou)
@@ -159,8 +172,8 @@ def main(args):
         ids = list(range(torch.cuda.device_count())) 
         model = torch.nn.DataParallel(model, device_ids=ids)
     
-    criterion = DiceLoss()  
-    optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay = 1e-3)
+    criterion = ComboLoss()
+    optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     iou_metric = BinaryJaccardIndex().to(device)
     
     scheduler = CosineAnnealingLR(optimizer, T_max=args.niter, eta_min=1e-6)
@@ -183,6 +196,7 @@ def main(args):
         epoch_time = end_time - start_time
         print(f'\nEpoch {epoch+1} completed in {epoch_time:.2f} seconds\n')
         
+        # Save the best model based on Weighted Mean IOU
         if weighted_miou > best_weighted_miou:
             best_weighted_miou = weighted_miou
             os.makedirs(args.logpath, exist_ok=True)
@@ -197,6 +211,61 @@ def main(args):
                 break
     
     print(f'Best model saved with weighted miou: {best_weighted_miou:.4f}')
+
+    # --- Post Training: Filter and Save Images based on Thresholds ---
+    print("\nTraining Finished. Starting post-training evaluation and saving...")
+    
+    # Load the best model
+    best_model_path = os.path.join(args.logpath, 'best_model.pth')
+    model.load_state_dict(torch.load(best_model_path))
+    model.eval()
+
+    # Create directories
+    os.makedirs('glioma', exist_ok=True)
+    os.makedirs('meningioma', exist_ok=True)
+    os.makedirs('pituitary', exist_ok=True)
+
+    with torch.no_grad():
+        batch_idx = 0
+        for inputs, targets, tumors_type in val_loader:
+            inputs = inputs.to(device)
+            targets = targets.to(device)
+            outputs = model(inputs)
+            preds = (outputs > 0.5).float()
+
+            for i in range(inputs.size(0)):
+                iou = iou_metric(preds[i].unsqueeze(0).int(), targets[i].unsqueeze(0).int()).item()
+                t_type = tumors_type[i]
+                
+                should_save = False
+                save_folder = ""
+                
+                # Check thresholds
+                if t_type == 'gl' and iou < 0.6:
+                    should_save = True
+                    save_folder = 'glioma'
+                elif t_type == 'me' and iou < 0.8:
+                    should_save = True
+                    save_folder = 'meningioma'
+                elif t_type == 'pi' and iou < 0.7:
+                    should_save = True
+                    save_folder = 'pituitary'
+                
+                if should_save:
+                    filename_base = f"{iou:.4f}_batch{batch_idx}_idx{i}"
+                    
+                    # Save Image
+                    save_image(inputs[i], os.path.join(save_folder, f"{filename_base}_image.png"))
+                    
+                    # Save Predicted Mask
+                    save_image(preds[i], os.path.join(save_folder, f"{filename_base}_mask.png"))
+
+                    # Save Target (Ground Truth) Mask
+                    save_image(targets[i], os.path.join(save_folder, f"{filename_base}_target.png"))
+            
+            batch_idx += 1
+    
+    print("Post-training evaluation and saving completed.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train UNet on brain tumor segmentation using BRISC 2025 dataset")

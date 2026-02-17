@@ -1,5 +1,6 @@
 import os
 import torch
+import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms as T
 import torchvision.transforms.functional as TF
@@ -29,6 +30,13 @@ class SegmentationDataset(Dataset):
         tumor_type = self.images[idx].split('_')[3]
 
         return image, mask, tumor_type
+
+class ContrastStretch:
+    def __call__(self, img):
+        img_np = np.array(img).astype(np.float32)
+        mn, mx = img_np.min(), img_np.max()
+        img_np = (img_np - mn) / (mx - mn + 1e-8) * 255.0
+        return Image.fromarray(img_np.astype(np.uint8))
 
 class JointTransform:
     def __init__(self, size=(256, 256), scale=(0.8, 1.0), ratio=(0.75, 1.33), is_train=True):
