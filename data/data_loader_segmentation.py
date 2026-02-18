@@ -81,7 +81,7 @@ class JointTransform:
 
 def get_data_loader(data_dir, batch_size):
 
-    train_transform = JointTransform(scale=(0.5, 1.0), ratio=(0.75, 1.33), is_train=True)
+    train_transform = JointTransform(scale=(0.7, 1.0), ratio=(0.75, 1.33), is_train=True)
     test_transform = JointTransform(is_train=False)
     
     train_dataset = SegmentationDataset(
