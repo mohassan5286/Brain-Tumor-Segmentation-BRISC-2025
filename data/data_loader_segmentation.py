@@ -44,10 +44,13 @@ class JointTransform:
         self.scale = scale
         self.ratio = ratio
         self.is_train = is_train
+        self.contrast_stretch = ContrastStretch()
         self.mean = [0.16666122]
         self.std = [0.17487395]
 
     def __call__(self, image, mask):
+        image = self.contrast_stretch(image)
+
         if self.is_train:
             i, j, h, w = T.RandomResizedCrop.get_params(
                 image, scale=self.scale, ratio=self.ratio
