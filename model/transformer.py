@@ -524,15 +524,15 @@ def _get_activation_fn(activation):
     if activation == "glu":
         return F.glu
     raise RuntimeError(f"activation should be relu/gelu, not {activation}.")
-        super().__init__()
-        self.num_pos_feats = num_pos_feats
-        self.temperature = temperature
-        self.normalize = normalize
-        if scale is not None and normalize is False:
-            raise ValueError("normalize should be True if scale is passed")
-        if scale is None:
-            scale = 2 * math.pi
-        self.scale = scale
+    super().__init__()
+    self.num_pos_feats = num_pos_feats
+    self.temperature = temperature
+    self.normalize = normalize
+    if scale is not None and normalize is False:
+        raise ValueError("normalize should be True if scale is passed")
+    if scale is None:
+        scale = 2 * math.pi
+    self.scale = scale
 
     def forward(self, x, mask=None):
         if mask is None:

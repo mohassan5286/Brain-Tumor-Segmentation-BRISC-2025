@@ -56,24 +56,6 @@ class SegmentationDataset(Dataset):
 
 
 # ============================================================================
-# Data Augmentation Classes
-# ============================================================================
-
-
-class ContrastStretch:
-    """Normalize image contrast by stretching to full dynamic range."""
-
-    def __call__(self, img):
-        # Convert to numpy array
-        img_np = np.array(img).astype(np.float32)
-        # Get min and max values
-        mn, mx = img_np.min(), img_np.max()
-        # Normalize to 0-255 range
-        img_np = (img_np - mn) / (mx - mn + 1e-8) * 255.0
-        return Image.fromarray(img_np.astype(np.uint8))
-
-
-# ============================================================================
 # Joint Transformation Class
 # ============================================================================
 
@@ -115,7 +97,6 @@ def get_data_loader(data_dir, batch_size):
             transforms.Resize((256, 256)),
             transforms.RandomRotation(degrees=15),
             transforms.RandomHorizontalFlip(p=0.5),
-            ContrastStretch(),
             transforms.ToTensor(),
             # Normalize using dataset statistics
             transforms.Normalize(mean=[0.16666122], std=[0.17487395]),
@@ -143,7 +124,6 @@ def get_data_loader(data_dir, batch_size):
     test_transform = transforms.Compose(
         [
             transforms.Resize((256, 256)),
-            ContrastStretch(),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.16666122], std=[0.17487395]),
         ]

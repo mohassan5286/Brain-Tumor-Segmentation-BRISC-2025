@@ -24,23 +24,6 @@ from torchvision.utils import save_image
 # ============================================================================
 
 
-def dice_coefficient(pred, target, threshold=0.5):
-    """Calculate Dice coefficient between predictions and targets."""
-    # Threshold predictions to binary values
-    pred = (pred > threshold).float()
-    target = target.float()
-
-    # Calculate intersection and union
-    intersection = (pred * target).sum()
-    union = pred.sum() + target.sum()
-
-    # Handle empty predictions/targets
-    if union.item() == 0:
-        return 1.0
-
-    return 2.0 * intersection / union
-
-
 class ComboLoss(nn.Module):
     """Combined loss: Dice Loss + Binary Cross-Entropy for balanced optimization."""
 
@@ -63,24 +46,6 @@ class ComboLoss(nn.Module):
         combo_loss = BCE + dice_loss
 
         return combo_loss
-
-
-class DiceLoss(nn.Module):
-    """Dice Loss for binary segmentation tasks - measures spatial overlap."""
-
-    def __init__(self, weight=None, size_average=True):
-        super(DiceLoss, self).__init__()
-
-    def forward(self, inputs, targets, smooth=1):
-        # Flatten label and prediction tensors for loss computation
-        inputs = inputs.view(-1)
-        targets = targets.view(-1)
-
-        # Calculate Dice coefficient and return 1 - Dice as loss
-        intersection = (inputs * targets).sum()
-        dice = (2.0 * intersection + smooth) / (inputs.sum() + targets.sum() + smooth)
-
-        return 1 - dice
 
 
 def count_parameters(model, trainable_only=False):

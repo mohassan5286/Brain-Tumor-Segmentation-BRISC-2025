@@ -15,28 +15,35 @@
   - [🚀 Usage](#-usage)
     - [Training](#training)
     - [Testing/Inference](#testinginference)
-    - [Jupyter Notebook](#jupyter-notebook)
-  - [📄 License](#-license)
+    - [Test-Time Augmentation (TTA)](#test-time-augmentation-inference)
+  - [💾 Checkpoint](#-checkpoint)
   - [🤝 Contributing](#-contributing)
 
 ## 🎯 Overview
 
-This project tackles the `BRISC 2025 brain tumor segmentation challenge` by developing a robust deep learning pipeline that segments brain tumors from medical imaging data. Our solution tries to modify `TransNet` using `Spatial Attention`, `Combo loss` and `Data Augmentation` to achieve high accuracy in tumor segmentation.
+This project tackles the `BRISC 2025 brain tumor segmentation challenge` by developing a robust deep learning pipeline that segments brain tumors from medical imaging data. Our solution tries to modify `The Lighweight TransNet` using `Spatial Attention`, `Combo loss` and `Data Augmentation`, `Test-Time Augmentation` to achieve high accuracy in tumor segmentation.
 
 ---
 
 ## 🏗️ Architecture
-
-![Architecture Diagram](./docs/img/1.png)
+<picture>
+  <!-- Dark mode -->
+  <source srcset="docs/img/SA-TransUNet-Dark.svg" media="(prefers-color-scheme: dark)">
+  
+  <!-- Light mode -->
+  <source srcset="docs/img/SA-TransUNet-Light.svg" media="(prefers-color-scheme: light)">
+  
+  <!-- REQUIRED fallback -->
+  <img src="docs/img/SA-TransUNet-Light.svg" alt="Diagram">
+</picture>
 
 ### Key Components:
 
-1. **Encoder Blocks**: Multi-scale feature extraction with DoubleConv layers
-2. **Spatial Attention**: Learns to focus on relevant spatial regions
-3. **Transformer Decoder**: Refines predictions using attention-based mechanisms
-4. **Position Embedding**: Sine-based positional embeddings for spatial awareness
-5. **Decoder Pathway**: Progressive upsampling with feature concatenation
-
+1. **CNN Encoder:** Extracts fine, local features using standard DoubleConv layers.
+2. **Spatial Attention:** Actively focuses the network on relevant tumor regions.
+3. **Transformer Bottleneck:** Captures long-range global dependencies using multi-head self-attention.
+4. **Multi-Scale Transformers:** Dynamically weights skip connection features before fusion.
+5. **CNN Decoder:** Progressively upsamples and concatenates features for the final mask.
 ---
 
 ## 🔧 Installation
@@ -76,7 +83,7 @@ pip install -r requirements.txt
 The dataset structure should follow this format:
 
 ```
-segmentation_task/
+root_directory/
 ├── train/
 │   ├── images/
 │   │   ├── image_1.jpg
@@ -86,14 +93,19 @@ segmentation_task/
 │       ├── image_1.png
 │       ├── image_2.png
 │       └── ...
-├── val/
-│   └── (same structure as train)
+
 └── test/
-    └── (test images only)
+│   ├── images/
+│   │   ├── image_1.jpg
+│   │   ├── image_2.jpg
+│   │   └── ...
+│   └── masks/
+│       ├── image_1.png
+│       ├── image_2.png
+│       └── ...
 ```
 
 **Note**: Images are processed in grayscale (single channel) with 256×256 resolution.
-
 ---
 
 ## 🚀 Usage
@@ -108,14 +120,6 @@ python train_seg.py \
   --lr 0.0001
 ```
 
-**Training Arguments:**
-- `--data_dir`: Path to the dataset directory
-- `--bsz`: Batch size (default: 32)
-- `--niter`: Number of training iterations/epochs (default: 100)
-- `--lr`: Learning rate (default: 0.0001)
-- `--model_save_path`: Path to save model checkpoints (optional)
-- `--device`: GPU device ID (default: 0)
-
 ### Testing/Inference
 
 ```bash
@@ -126,20 +130,21 @@ python test_seg.py \
   --output_dir /path/to/output/masks
 ```
 
-**Testing Arguments:**
-- `--data_dir`: Path to test images directory
-- `--model_path`: Path to trained model weights
-- `--bsz`: Batch size for inference (default: 32)
-- `--output_dir`: Directory to save predicted masks (optional)
+### Test-Time Augmentation/Inference
 
-**Output:**
-- Binary segmentation masks (PNG format)
-- Threshold: 0.5 (configurable)
-- Naming convention: `{image_name}_mask.png`
+```bash
+python tta_inference.py \
+  --data_dir /path/to/test/images \
+  --model_path /path/to/trained_model.pth \
+  --bsz 32 \
+  --output_dir /path/to/output/masks
+```
 
-### Jupyter Notebook
+---
 
-An interactive notebook (`brain-tumor-segmentation.ipynb`) is available to use in google colab or kaggle.
+## Checkpoint
+You can download the best pre-trained SA-TransUNet model weights for evaluation here:  
+🔗 **[Best Model Checkpoint (Google Drive)](https://drive.google.com/drive/folders/1DY_CwsfGjO4pQg4zMCpyX0HsYmNi8yj3?usp=sharing)**
 
 ---
 
