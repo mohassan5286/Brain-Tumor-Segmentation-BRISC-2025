@@ -13,7 +13,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchmetrics.classification import BinaryJaccardIndex
 from model.UNet import UNet
 from data.data_loader_segmentation import get_data_loader
@@ -167,6 +167,7 @@ def main(args):
     print(f"|                  bsz: {args.bsz}")
     print(f"|                   lr: {args.lr}")
     print(f"|                niter: {args.niter}")
+    print(f"|             patience: {args.patience}")
     print(":==========================================================")
 
     train_loader, val_loader = get_data_loader(args.data_dir, args.bsz)
@@ -188,11 +189,11 @@ def main(args):
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     iou_metric = BinaryJaccardIndex().to(device)
 
-    scheduler = CosineAnnealingLR(optimizer, T_max=args.niter, eta_min=1e-6)
+    scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3)
 
     best_weighted_miou = float("-inf")
 
-    patience = 7
+    patience = args.patience
     trigger_times = 0
 
     for epoch in range(args.niter):
@@ -204,7 +205,7 @@ def main(args):
             model, val_loader, criterion, iou_metric, device, epoch
         )
 
-        scheduler.step()
+        scheduler.step(weighted_miou)
 
         end_time = time.time()
         epoch_time = end_time - start_time
@@ -289,12 +290,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Train UNet on brain tumor segmentation using BRISC 2025 dataset"
     )
-    parser.add_argument("--bsz", type=int, default=8, help="Batch size for training")
+    parser.add_argument("--bsz", type=int, default=32, help="Batch size for training")
     parser.add_argument(
         "--lr", type=float, default=1e-3, help="Learning rate for optimizer"
     )
     parser.add_argument(
-        "--niter", type=int, default=30, help="Number of training iterations (epochs)"
+        "--niter", type=int, default=150, help="Number of training iterations (epochs)"
+    )
+    parser.add_argument(
+        "--patience", type=int, default=7, help="Patience for early stopping"
     )
     parser.add_argument(
         "--data_dir",

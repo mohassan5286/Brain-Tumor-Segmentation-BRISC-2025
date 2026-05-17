@@ -87,7 +87,7 @@ if __name__ == "__main__":
         required=True,
         help="Directory to save predicted masks",
     )
-    parser.add_argument("--bsz", type=int, default=8, help="Batch size for testing")
+    parser.add_argument("--bsz", type=int, default=32, help="Batch size for testing")
 
     args = parser.parse_args()
     main(args)
