@@ -292,7 +292,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--bsz", type=int, default=32, help="Batch size for training")
     parser.add_argument(
-        "--lr", type=float, default=1e-3, help="Learning rate for optimizer"
+        "--lr", type=float, default=1e-4, help="Learning rate for optimizer"
     )
     parser.add_argument(
         "--niter", type=int, default=150, help="Number of training iterations (epochs)"
