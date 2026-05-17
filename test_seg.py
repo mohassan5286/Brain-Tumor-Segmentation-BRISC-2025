@@ -20,38 +20,26 @@ from model.UNet import UNet
 
 
 def generate_masks(test_loader, model, output_dir):
-    """Generate and save segmentation masks for test images."""
-    # Set model to evaluation mode
     model.eval()
 
-    # Move model to GPU if available
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda")
     model.to(device)
 
-    # Inference on test set without gradient computation
     with torch.no_grad():
-        for i, (inputs, _) in enumerate(test_loader):
-            # Move batch to device
+        for i, (inputs, _, _) in enumerate(test_loader):
             inputs = inputs.to(device)
-            # Get model predictions
             outputs = model(inputs)
-            # Apply threshold to get binary predictions
             predictions = (
                 outputs > 0.5
-            ).float()  # Threshold of 0.5 for binary prediction
+            ).float()  
 
-            # Process each image in the batch
             for j in range(inputs.size(0)):
-                # Extract mask and convert to numpy
                 pred_mask = predictions[j].cpu().numpy().squeeze()
-                # Get original image name from dataset
                 image_name = test_loader.dataset.images[i * test_loader.batch_size + j]
-                # Create output path with _mask suffix
                 save_path = os.path.join(
                     output_dir, image_name.replace(".jpg", "_mask.png")
                 )
 
-                # Convert to uint8 and save as PNG
                 pred_mask = (pred_mask * 255).astype(np.uint8)
                 Image.fromarray(pred_mask).save(save_path)
 
@@ -64,19 +52,18 @@ def generate_masks(test_loader, model, output_dir):
 
 
 def main(args):
-    """Load model and generate masks for all test images."""
-    # Load test data
     test_loader = get_test_loader(args.data_dir, args.bsz)
+    device = torch.device("cuda")
 
-    # Instantiate the UNet model with specified architecture
     model = UNet(in_channels=1, out_channels=1, feature_dims=64)
-    # Load pre-trained weights
-    model.load_state_dict(torch.load(args.model_path))
+    model.load_state_dict(torch.load(args.model_path, map_location=device))
+    
+    model.to(device)
+    if torch.cuda.device_count() > 1:
+        model = torch.nn.DataParallel(model)
 
-    # Create output directory if it doesn't exist
     os.makedirs(args.output_dir, exist_ok=True)
 
-    # Generate masks using the trained model
     generate_masks(test_loader, model, args.output_dir)
 
 

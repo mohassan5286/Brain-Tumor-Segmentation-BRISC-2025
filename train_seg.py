@@ -25,36 +25,27 @@ from torchvision.utils import save_image
 
 
 class ComboLoss(nn.Module):
-    """Combined loss: Dice Loss + Binary Cross-Entropy for balanced optimization."""
-
     def __init__(self, weight=None, size_average=True):
         super(ComboLoss, self).__init__()
 
     def forward(self, inputs, targets, smooth=1):
-        # Flatten predictions and targets
         inputs = inputs.view(-1)
         targets = targets.view(-1)
 
-        # Calculate Dice loss component
         intersection = (inputs * targets).sum()
         dice_loss = 1 - (2.0 * intersection + smooth) / (
             inputs.sum() + targets.sum() + smooth
         )
-        # Calculate Binary Cross-Entropy component
         BCE = nn.functional.binary_cross_entropy(inputs, targets, reduction="mean")
-        # Combine losses for balanced gradient updates
         combo_loss = BCE + dice_loss
 
         return combo_loss
 
 
 def count_parameters(model, trainable_only=False):
-    """Count total or trainable parameters in the model."""
     if trainable_only:
-        # Return only learnable parameters
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
     else:
-        # Return all parameters including frozen ones
         return sum(p.numel() for p in model.parameters())
 
 
@@ -64,11 +55,8 @@ def count_parameters(model, trainable_only=False):
 
 
 def train(model, train_loader, optimizer, criterion, iou_metric, device):
-    """Execute one training epoch on the training dataset."""
-    # Set model to training mode
     model.train()
     running_loss = 0.0
-    # Separate metrics for different tumor types: Glioma (gl), Meningioma (me), Pituitary (pi)
     gl_train_iou, me_train_iou, pi_train_iou = [], [], []
 
     for inputs, targets, tumors_type in train_loader:
@@ -118,11 +106,8 @@ def train(model, train_loader, optimizer, criterion, iou_metric, device):
 
 
 def validate(model, val_loader, criterion, iou_metric, device, epoch):
-    """Evaluate model on the validation dataset and compute metrics."""
-    # Set model to evaluation mode
     model.eval()
     running_loss = 0.0
-    # Separate metrics for different tumor types: Glioma (gl), Meningioma (me), Pituitary (pi)
     gl_val_iou, me_val_iou, pi_val_iou = [], [], []
 
     with torch.no_grad():
@@ -176,8 +161,6 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
 
 
 def main(args):
-    """Main training function with multi-GPU support and early stopping."""
-    # Display training configuration
     print(":=========== Brain Tumor Segmentation ============")
     print(f"|             datapath: {args.data_dir}")
     print(f"|              logpath: {args.logpath}")
@@ -186,7 +169,6 @@ def main(args):
     print(f"|                niter: {args.niter}")
     print(":==========================================================")
 
-    # Load training and validation datasets
     train_loader, val_loader = get_data_loader(args.data_dir, args.bsz)
 
     model = UNet(in_channels=1, out_channels=1, feature_dims=64)
@@ -196,12 +178,11 @@ def main(args):
     print(f"\nTotal # param.: {total_params}")
     print(f"Learnable # param.: {trainable_params}")
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda")
     model.to(device)
     if torch.cuda.device_count() > 1:
         print(f"Using {torch.cuda.device_count()} GPUs!")
-        ids = list(range(torch.cuda.device_count()))
-        model = torch.nn.DataParallel(model, device_ids=ids)
+        model = torch.nn.DataParallel(model)
 
     criterion = ComboLoss()
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
@@ -232,7 +213,8 @@ def main(args):
         if weighted_miou > best_weighted_miou:
             best_weighted_miou = weighted_miou
             os.makedirs(args.logpath, exist_ok=True)
-            torch.save(model.state_dict(), os.path.join(args.logpath, "best_model.pth"))
+            state_to_save = model.module.state_dict() if isinstance(model, torch.nn.DataParallel) else model.state_dict()
+            torch.save(state_to_save, os.path.join(args.logpath, "best_model.pth"))
             print(f"Best model saved with weighted_miou: {best_weighted_miou:.4f}")
             trigger_times = 0
         else:
@@ -244,15 +226,12 @@ def main(args):
 
     print(f"Best model saved with weighted miou: {best_weighted_miou:.4f}")
 
-    # --- Post Training: Filter and Save Images based on Thresholds ---
     print("\nTraining Finished. Starting post-training evaluation and saving...")
 
-    # Load the best model
     best_model_path = os.path.join(args.logpath, "best_model.pth")
-    model.load_state_dict(torch.load(best_model_path))
+    model.load_state_dict(torch.load(best_model_path, map_location=device))
     model.eval()
 
-    # Create directories
     os.makedirs("glioma", exist_ok=True)
     os.makedirs("meningioma", exist_ok=True)
     os.makedirs("pituitary", exist_ok=True)
@@ -274,7 +253,6 @@ def main(args):
                 should_save = False
                 save_folder = ""
 
-                # Check thresholds
                 if t_type == "gl" and iou < 0.6:
                     should_save = True
                     save_folder = "glioma"
@@ -288,18 +266,15 @@ def main(args):
                 if should_save:
                     filename_base = f"{iou:.4f}_batch{batch_idx}_idx{i}"
 
-                    # Save Image
                     save_image(
                         inputs[i],
                         os.path.join(save_folder, f"{filename_base}_image.png"),
                     )
 
-                    # Save Predicted Mask
                     save_image(
                         preds[i], os.path.join(save_folder, f"{filename_base}_mask.png")
                     )
 
-                    # Save Target (Ground Truth) Mask
                     save_image(
                         targets[i],
                         os.path.join(save_folder, f"{filename_base}_target.png"),

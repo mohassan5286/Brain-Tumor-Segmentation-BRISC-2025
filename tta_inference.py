@@ -12,22 +12,19 @@ from model.UNet import UNet
 from data.data_loader_segmentation import get_data_loader
 
 # --- TTA Function ---
-def predict_with_heavy_tta(model, inputs):
+def predict_with_tta(model, inputs):
     pred_1 = model(inputs)
     
-    inputs_h = torch.flip(inputs, dims=[3]) 
-    pred_2 = torch.flip(model(inputs_h), dims=[3]) 
+    inputs_h = torch.flip(inputs, dims=[3])
+    pred_2 = torch.flip(model(inputs_h), dims=[3])
     
-    inputs_v = torch.flip(inputs, dims=[2]) 
-    pred_3 = torch.flip(model(inputs_v), dims=[2]) 
+    inputs_v = torch.flip(inputs, dims=[2])
+    pred_3 = torch.flip(model(inputs_v), dims=[2])
 
     inputs_hv = torch.flip(inputs, dims=[2, 3])
-    pred_4 = torch.flip(model(inputs_hv), dims=[2, 3]) 
+    pred_4 = torch.flip(model(inputs_hv), dims=[2, 3])
 
-    inputs_bright = inputs * 1.1
-    pred_5 = model(inputs_bright)
-
-    return (pred_1 + pred_2 + pred_3 + pred_4 + pred_5) / 5.0
+    return (pred_1 + pred_2 + pred_3 + pred_4) / 4.0
 
 # --- Evaluation Loop ---
 def evaluate_and_save_tta(model, val_loader, iou_metric, device, output_dir):
@@ -38,13 +35,13 @@ def evaluate_and_save_tta(model, val_loader, iou_metric, device, output_dir):
     for d in dirs: 
         os.makedirs(os.path.join(output_dir, d), exist_ok=True)
         
-    print(f"Starting 5-VIEW Modified TTA Evaluation on {device}...")
+    print(f"Starting 4-VIEW TTA Evaluation on {device}...")
     
     with torch.no_grad():
         for batch_idx, (inputs, targets, tumors_type) in enumerate(val_loader):
             inputs, targets = inputs.to(device), targets.to(device)
             
-            probs = predict_with_heavy_tta(model, inputs)
+            probs = predict_with_tta(model, inputs)
             preds = (probs > 0.5).float()
             
             for i in range(inputs.size(0)):
@@ -77,7 +74,7 @@ def evaluate_and_save_tta(model, val_loader, iou_metric, device, output_dir):
     total = len(gl_ious) + len(me_ious) + len(pi_ious)
     weighted_miou = (gl_mean * len(gl_ious) + me_mean * len(me_ious) + pi_mean * len(pi_ious)) / total if total > 0 else 0
     
-    print("\n:=========== 5-VIEW TTA RESULTS ===========")
+    print("\n:=========== 4-VIEW TTA RESULTS ===========")
     print(f"| Glioma (GL):      {gl_mean:.4f}")
     print(f"| Meningioma (ME):  {me_mean:.4f}")
     print(f"| Pituitary (PI):   {pi_mean:.4f}")
@@ -87,17 +84,19 @@ def evaluate_and_save_tta(model, val_loader, iou_metric, device, output_dir):
 
 # --- Main Setup ---
 def main(args):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda")
     _, val_loader = get_data_loader(args.data_dir, args.bsz)
     
     model = UNet(in_channels=1, out_channels=1, feature_dims=64)
-    model.to(device)
-    model = nn.DataParallel(model) 
     
     if os.path.exists(args.model_path):
         print(f"Loading checkpoint: {args.model_path}")
         checkpoint = torch.load(args.model_path, map_location=device)
         model.load_state_dict(checkpoint)
+        
+        model.to(device)
+        if torch.cuda.device_count() > 1:
+            model = nn.DataParallel(model)
         
         iou_metric = BinaryJaccardIndex().to(device)
         evaluate_and_save_tta(model, val_loader, iou_metric, device, args.output_dir)

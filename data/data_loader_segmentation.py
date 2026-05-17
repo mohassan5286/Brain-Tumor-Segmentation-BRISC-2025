@@ -85,7 +85,7 @@ class JointTransform:
 
 
 # ============================================================================
-# Data Loader Creation Function
+# Training Data Loader Creation Function
 # ============================================================================
 
 
@@ -163,3 +163,44 @@ def get_data_loader(data_dir, batch_size):
     )
 
     return train_loader, test_loader
+
+
+# ============================================================================
+# Testing Data Loader Creation Function
+# ============================================================================
+
+
+def get_test_loader(data_dir, batch_size):
+    """Create and return test data loader without augmentation."""
+    
+    # Define transformations for test images (no augmentation)
+    test_transform = transforms.Compose([
+        transforms.Resize((256, 256)),
+        transforms.ToTensor(),
+        # Normalize using dataset statistics
+        transforms.Normalize(mean=[0.16666122], std=[0.17487395]),
+    ])
+
+    # Define transformations for test masks
+    test_mask_transform = transforms.Compose([
+        transforms.Resize(
+            (256, 256), interpolation=transforms.InterpolationMode.NEAREST
+        ),
+        transforms.ToTensor(),
+        # Threshold masks to binary values
+        transforms.Lambda(lambda x: (x > 0.5).float()),
+    ])
+
+    # Create test dataset
+    test_dataset = SegmentationDataset(
+        image_dir=os.path.join(data_dir, "test", "images"),
+        mask_dir=os.path.join(data_dir, "test", "masks"),
+        transform=JointTransform(test_transform, test_mask_transform),
+    )
+
+    # Create data loader (no shuffling for evaluation)
+    test_loader = DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=False, num_workers=4
+    )
+
+    return test_loader
