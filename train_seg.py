@@ -230,7 +230,11 @@ def main(args):
     print("\nTraining Finished. Starting post-training evaluation and saving...")
 
     best_model_path = os.path.join(args.logpath, "best_model.pth")
-    model.load_state_dict(torch.load(best_model_path, map_location=device))
+    checkpoint = torch.load(best_model_path, map_location=device)
+    if isinstance(model, torch.nn.DataParallel):
+        model.module.load_state_dict(checkpoint)
+    else:
+        model.load_state_dict(checkpoint)
     model.eval()
 
     os.makedirs("glioma", exist_ok=True)
