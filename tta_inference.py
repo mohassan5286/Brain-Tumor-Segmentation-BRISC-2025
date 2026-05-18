@@ -3,6 +3,7 @@
 # ==========================================
 import os
 import argparse
+import random
 import torch
 import numpy as np
 import torch.nn as nn
@@ -10,6 +11,15 @@ from torchmetrics.classification import BinaryJaccardIndex
 from torchvision.utils import save_image
 from model.UNet import UNet  
 from data.data_loader_segmentation import get_data_loader
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 # --- TTA Function ---
 def predict_with_tta(model, inputs):
@@ -84,6 +94,7 @@ def evaluate_and_save_tta(model, val_loader, iou_metric, device, output_dir):
 
 # --- Main Setup ---
 def main(args):
+    set_seed(42)
     device = torch.device("cuda")
     _, val_loader = get_data_loader(args.data_dir, args.bsz)
     

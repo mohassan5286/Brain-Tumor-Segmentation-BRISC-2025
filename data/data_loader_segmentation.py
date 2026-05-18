@@ -13,6 +13,12 @@ from torchvision import transforms
 from PIL import Image
 import random
 
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
 # ============================================================================
 # Custom Dataset Class
 # ============================================================================
@@ -154,12 +160,17 @@ def get_data_loader(data_dir, batch_size):
         transform=JointTransform(test_transform, test_mask_transform),
     )
 
+    g = torch.Generator()
+    g.manual_seed(42)
+
     # Create data loaders with shuffling for training
     train_loader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4,
+        worker_init_fn=seed_worker, generator=g
     )
     test_loader = DataLoader(
-        test_dataset, batch_size=batch_size, shuffle=False, num_workers=4
+        test_dataset, batch_size=batch_size, shuffle=False, num_workers=4,
+        worker_init_fn=seed_worker, generator=g
     )
 
     return train_loader, test_loader
@@ -198,9 +209,13 @@ def get_test_loader(data_dir, batch_size):
         transform=JointTransform(test_transform, test_mask_transform),
     )
 
+    g = torch.Generator()
+    g.manual_seed(42)
+
     # Create data loader (no shuffling for evaluation)
     test_loader = DataLoader(
-        test_dataset, batch_size=batch_size, shuffle=False, num_workers=4
+        test_dataset, batch_size=batch_size, shuffle=False, num_workers=4,
+        worker_init_fn=seed_worker, generator=g
     )
 
     return test_loader

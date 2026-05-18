@@ -9,6 +9,7 @@
 import argparse
 import os
 import time
+import random
 import numpy as np
 import torch
 import torch.nn as nn
@@ -18,6 +19,15 @@ from torchmetrics.classification import BinaryJaccardIndex
 from model.UNet import UNet
 from data.data_loader_segmentation import get_data_loader
 from torchvision.utils import save_image
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 # ============================================================================
 # Loss Functions and Metrics
@@ -161,6 +171,7 @@ def validate(model, val_loader, criterion, iou_metric, device, epoch):
 
 
 def main(args):
+    set_seed(42)
     print(":=========== Brain Tumor Segmentation ============")
     print(f"|             datapath: {args.data_dir}")
     print(f"|              logpath: {args.logpath}")

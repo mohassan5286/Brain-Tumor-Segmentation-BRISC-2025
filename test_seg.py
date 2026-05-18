@@ -7,12 +7,22 @@
 
 import os
 import argparse
+import random
 import torch
 from torchvision import transforms
 from PIL import Image
 import numpy as np
 from data.data_loader_segmentation import get_test_loader
 from model.UNet import UNet
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 # ============================================================================
 # Mask Generation Function
@@ -52,6 +62,7 @@ def generate_masks(test_loader, model, output_dir):
 
 
 def main(args):
+    set_seed(42)
     test_loader = get_test_loader(args.data_dir, args.bsz)
     device = torch.device("cuda")
 
