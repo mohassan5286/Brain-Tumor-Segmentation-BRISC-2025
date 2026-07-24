@@ -1,24 +1,5 @@
 # Brain Tumor Segmentation - BRISC 2025
 
-## 📋 Table of Contents
-
-- [Brain Tumor Segmentation - BRISC 2025](#brain-tumor-segmentation---brisc-2025)
-  - [📋 Table of Contents](#-table-of-contents)
-  - [🎯 Overview](#-overview)
-  - [🏗️ Architecture](#️-architecture)
-    - [Key Components:](#key-components)
-  - [🔧 Installation](#-installation)
-    - [Prerequisites](#prerequisites)
-    - [Setup](#setup)
-    - [Dependencies](#dependencies)
-  - [📊 Dataset](#-dataset)
-  - [🚀 Usage](#-usage)
-    - [Training](#training)
-    - [Testing/Inference](#testinginference)
-    - [Test-Time Augmentation (TTA)](#test-time-augmentation-inference)
-  - [💾 Checkpoint](#-checkpoint)
-  - [🤝 Contributing](#-contributing)
-
 ## 🎯 Overview
 
 This project tackles the `BRISC 2025 brain tumor segmentation challenge` by developing a robust deep learning pipeline that segments brain tumors from medical imaging data. Our solution tries to modify `The Lighweight TransNet` using `Spatial Attention`, `Combo loss` and `Data Augmentation`, `Test-Time Augmentation` to achieve high accuracy in tumor segmentation.
@@ -49,9 +30,9 @@ This project tackles the `BRISC 2025 brain tumor segmentation challenge` by deve
 ## 🔧 Installation
 
 ### Prerequisites
-- Python 3.8+
-- CUDA 11.0+ (for GPU support)
-- pip or conda package manager
+- Python 3.12.13
+- CUDA 12.8 (for GPU support)
+- pip package manager
 
 ### Setup
 
@@ -60,21 +41,16 @@ This project tackles the `BRISC 2025 brain tumor segmentation challenge` by deve
 git clone https://github.com/mohassan5286/Brain-Tumor-Segmentation---BRISC-2025.git
 cd Brain-Tumor-Segmentation---BRISC-2025
 
-# Create virtual environment (optional but recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
 # Install dependencies
 pip install -r requirements.txt
 ```
 
 ### Dependencies
-- PyTorch 2.0+
+- PyTorch 2.10 (cu128)
 - torchvision
 - torchmetrics
 - Pillow
 - NumPy
-- SciPy
 
 ---
 
@@ -127,7 +103,6 @@ python test_seg.py \
   --data_dir /path/to/test/images \
   --model_path /path/to/trained_model.pth \
   --bsz 32 \
-  --output_dir /path/to/output/masks
 ```
 
 ### Test-Time Augmentation/Inference
@@ -137,14 +112,13 @@ python tta_inference.py \
   --data_dir /path/to/test/images \
   --model_path /path/to/trained_model.pth \
   --bsz 32 \
-  --output_dir /path/to/output/masks
 ```
 
 ---
 
 ## Checkpoint
 You can download the best pre-trained SA-TransUNet model weights for evaluation here:  
-🔗 **[Best Model Checkpoint (Google Drive)](https://drive.google.com/drive/folders/1DY_CwsfGjO4pQg4zMCpyX0HsYmNi8yj3?usp=sharing)**
+🔗 **[Best Model Checkpoint (Google Drive)](https://drive.google.com/drive/folders/1eUHbgVAuqDQPBty_Rz8PPsF9EIr_IwAe?usp=sharing)**
 
 ---
 
