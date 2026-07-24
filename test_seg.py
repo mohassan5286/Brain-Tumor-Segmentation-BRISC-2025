@@ -2,7 +2,7 @@
 # Brain Tumor Segmentation Testing/Inference Script - BRISC 2025
 # ============================================================================
 # This script performs inference on test images using a trained UNet model
-# and generates binary segmentation masks for brain tumors.
+# and evaluates the binary segmentation masks for brain tumors.
 # ============================================================================
 
 import os
@@ -10,8 +10,8 @@ import argparse
 import random
 import torch
 from torchvision import transforms
-from PIL import Image
 import numpy as np
+from torchmetrics.classification import BinaryJaccardIndex
 from data.data_loader_segmentation import get_test_loader
 from model.UNet import UNet
 
@@ -25,35 +25,62 @@ def set_seed(seed=42):
     torch.backends.cudnn.benchmark = False
 
 # ============================================================================
-# Mask Generation Function
+# Mask Evaluation Function
 # ============================================================================
 
 
-def generate_masks(test_loader, model, output_dir):
+def evaluate_masks(test_loader, model, iou_metric, device):
     model.eval()
+    
+    gl_ious, me_ious, pi_ious = [], [], []
 
-    device = torch.device("cuda")
-    model.to(device)
+    print(f"Starting Evaluation on {device}...")
 
     with torch.no_grad():
-        for i, (inputs, _, _) in enumerate(test_loader):
+        # Unpack targets and tumor_types alongside inputs
+        for i, (inputs, targets, tumors_type) in enumerate(test_loader):
             inputs = inputs.to(device)
+            targets = targets.to(device)
+            
             outputs = model(inputs)
-            predictions = (
-                outputs > 0.5
-            ).float()  
+            predictions = (outputs > 0.5).float()  
 
+            # Compute IoU per instance in the batch
             for j in range(inputs.size(0)):
-                pred_mask = predictions[j].cpu().numpy().squeeze()
-                image_name = test_loader.dataset.images[i * test_loader.batch_size + j]
-                save_path = os.path.join(
-                    output_dir, image_name.replace(".jpg", "_mask.png")
-                )
+                iou = iou_metric(
+                    predictions[j].unsqueeze(0).int(), 
+                    targets[j].unsqueeze(0).int()
+                ).item()
+                
+                t_type = tumors_type[j]
+                if t_type == 'gl':
+                    gl_ious.append(iou)
+                elif t_type == 'me':
+                    me_ious.append(iou)
+                elif t_type == 'pi':
+                    pi_ious.append(iou)
 
-                pred_mask = (pred_mask * 255).astype(np.uint8)
-                Image.fromarray(pred_mask).save(save_path)
+    # Calculate mean per class
+    def get_mean(lst): return np.mean(lst) if len(lst) > 0 else 0
+    gl_mean = get_mean(gl_ious)
+    me_mean = get_mean(me_ious)
+    pi_mean = get_mean(pi_ious)
+    
+    # Calculate weighted mean IoU based on instance counts
+    total_samples = len(gl_ious) + len(me_ious) + len(pi_ious)
+    weighted_miou = (
+        (gl_mean * len(gl_ious) + me_mean * len(me_ious) + pi_mean * len(pi_ious)) / total_samples 
+        if total_samples > 0 
+        else 0
+    )
 
-                print(f"Saved {save_path}")
+    print("\n:=========== TEST EVALUATION RESULTS ===========")
+    print(f"| Glioma (GL):      {gl_mean:.4f} ({len(gl_ious)} instances)")
+    print(f"| Meningioma (ME):  {me_mean:.4f} ({len(me_ious)} instances)")
+    print(f"| Pituitary (PI):   {pi_mean:.4f} ({len(pi_ious)} instances)")
+    print("------------------------------------------------")
+    print(f"| WEIGHTED MEAN IoU: {weighted_miou:.4f}")
+    print(":===============================================")
 
 
 # ============================================================================
@@ -64,18 +91,24 @@ def generate_masks(test_loader, model, output_dir):
 def main(args):
     set_seed(42)
     test_loader = get_test_loader(args.data_dir, args.bsz)
-    device = torch.device("cuda")
-
-    model = UNet(in_channels=1, out_channels=1, feature_dims=64)
-    model.load_state_dict(torch.load(args.model_path, map_location=device))
     
-    model.to(device)
-    if torch.cuda.device_count() > 1:
-        model = torch.nn.DataParallel(model)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = UNet(in_channels=1, out_channels=1, feature_dims=64)
+    
+    if os.path.exists(args.model_path):
+        print(f"Loading checkpoint: {args.model_path}")
+        checkpoint = torch.load(args.model_path, map_location=device)
+        new_state_dict = {k.replace('module.', '') if k.startswith('module.') else k: v for k, v in checkpoint.items()}
+        model.load_state_dict(new_state_dict)
+        
+        model.to(device)
+        if torch.cuda.device_count() > 1:
+            model = torch.nn.DataParallel(model)
 
-    os.makedirs(args.output_dir, exist_ok=True)
-
-    generate_masks(test_loader, model, args.output_dir)
+        iou_metric = BinaryJaccardIndex().to(device)
+        evaluate_masks(test_loader, model, iou_metric, device)
+    else:
+        print(f"Error: Checkpoint not found at {args.model_path}")
 
 
 # ============================================================================
@@ -84,19 +117,13 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Generate masks using trained UNet model"
+        description="Evaluate trained UNet model on test dataset"
     )
     parser.add_argument(
         "--data_dir", type=str, required=True, help="Directory containing test images"
     )
     parser.add_argument(
         "--model_path", type=str, required=True, help="Path to trained model weights"
-    )
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        required=True,
-        help="Directory to save predicted masks",
     )
     parser.add_argument("--bsz", type=int, default=32, help="Batch size for testing")
 

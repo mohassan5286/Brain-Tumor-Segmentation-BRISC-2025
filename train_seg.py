@@ -18,7 +18,6 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchmetrics.classification import BinaryJaccardIndex
 from model.UNet import UNet
 from data.data_loader_segmentation import get_data_loader
-from torchvision.utils import save_image
 
 def set_seed(seed=42):
     random.seed(seed)
@@ -178,7 +177,6 @@ def main(args):
     print(f"|                  bsz: {args.bsz}")
     print(f"|                   lr: {args.lr}")
     print(f"|                niter: {args.niter}")
-    print(f"|             patience: {args.patience}")
     print(":==========================================================")
 
     train_loader, val_loader = get_data_loader(args.data_dir, args.bsz)
@@ -200,12 +198,9 @@ def main(args):
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     iou_metric = BinaryJaccardIndex().to(device)
 
-    scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)
 
     best_weighted_miou = float("-inf")
-
-    patience = args.patience
-    trigger_times = 0
 
     for epoch in range(args.niter):
         print(f"\nEpoch {epoch + 1}/{args.niter}")
@@ -216,7 +211,7 @@ def main(args):
             model, val_loader, criterion, iou_metric, device, epoch
         )
 
-        scheduler.step(weighted_miou)
+        scheduler.step(val_loss)
 
         end_time = time.time()
         epoch_time = end_time - start_time
@@ -228,82 +223,13 @@ def main(args):
             state_to_save = model.module.state_dict() if isinstance(model, torch.nn.DataParallel) else model.state_dict()
             torch.save(state_to_save, os.path.join(args.logpath, "best_model.pth"))
             print(f"Best model saved with weighted_miou: {best_weighted_miou:.4f}")
-            trigger_times = 0
-        else:
-            trigger_times += 1
-            print(f"Early stopping counter: {trigger_times} out of {patience}")
-            if trigger_times >= patience:
-                print("Early stopping triggered.")
-                break
 
     print(f"Best model saved with weighted miou: {best_weighted_miou:.4f}")
-
-    print("\nTraining Finished. Starting post-training evaluation and saving...")
-
-    best_model_path = os.path.join(args.logpath, "best_model.pth")
-    checkpoint = torch.load(best_model_path, map_location=device)
-    if isinstance(model, torch.nn.DataParallel):
-        model.module.load_state_dict(checkpoint)
-    else:
-        model.load_state_dict(checkpoint)
-    model.eval()
-
-    os.makedirs("glioma", exist_ok=True)
-    os.makedirs("meningioma", exist_ok=True)
-    os.makedirs("pituitary", exist_ok=True)
-
-    with torch.no_grad():
-        batch_idx = 0
-        for inputs, targets, tumors_type in val_loader:
-            inputs = inputs.to(device)
-            targets = targets.to(device)
-            outputs = model(inputs)
-            preds = (outputs > 0.5).float()
-
-            for i in range(inputs.size(0)):
-                iou = iou_metric(
-                    preds[i].unsqueeze(0).int(), targets[i].unsqueeze(0).int()
-                ).item()
-                t_type = tumors_type[i]
-
-                should_save = False
-                save_folder = ""
-
-                if t_type == "gl" and iou < 0.6:
-                    should_save = True
-                    save_folder = "glioma"
-                elif t_type == "me" and iou < 0.8:
-                    should_save = True
-                    save_folder = "meningioma"
-                elif t_type == "pi" and iou < 0.7:
-                    should_save = True
-                    save_folder = "pituitary"
-
-                if should_save:
-                    filename_base = f"{iou:.4f}_batch{batch_idx}_idx{i}"
-
-                    save_image(
-                        inputs[i],
-                        os.path.join(save_folder, f"{filename_base}_image.png"),
-                    )
-
-                    save_image(
-                        preds[i], os.path.join(save_folder, f"{filename_base}_mask.png")
-                    )
-
-                    save_image(
-                        targets[i],
-                        os.path.join(save_folder, f"{filename_base}_target.png"),
-                    )
-
-            batch_idx += 1
-
-    print("Post-training evaluation and saving completed.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Train UNet on brain tumor segmentation using BRISC 2025 dataset"
+        description="Train SA-UNet model for brain tumor segmentation"
     )
     parser.add_argument("--bsz", type=int, default=32, help="Batch size for training")
     parser.add_argument(
@@ -311,9 +237,6 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--niter", type=int, default=150, help="Number of training iterations (epochs)"
-    )
-    parser.add_argument(
-        "--patience", type=int, default=7, help="Patience for early stopping"
     )
     parser.add_argument(
         "--data_dir",
