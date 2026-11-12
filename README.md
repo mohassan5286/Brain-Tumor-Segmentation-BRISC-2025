@@ -116,9 +116,16 @@ python tta_inference.py \
 
 ---
 
+## Paper
+You can access the research paper here:  
+🔗 **[Read the Paper](https://drive.google.com/file/d/1KfAI8ggjQ6gt8sopEEArnRtkiieXMDYm/view?usp=sharing)**
+
+---
+
 ## Checkpoint
 You can download the best pre-trained SA-TransUNet model weights for evaluation here:  
 🔗 **[Best Model Checkpoint (Google Drive)](https://drive.google.com/drive/folders/1eUHbgVAuqDQPBty_Rz8PPsF9EIr_IwAe?usp=sharing)**
+
 
 ---
 
